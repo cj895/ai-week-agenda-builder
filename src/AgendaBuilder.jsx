@@ -292,7 +292,7 @@ function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onClose}){
       </div>
       <div className="mf">
         <div style={{display:"flex",gap:6}}>
-          {!isNew&&!s.locked&&<button className="b bd bs" onClick={async()=>{if(!confirm("Delete?"))return;setBusy(true);await onDel(s.id);setBusy(false)}} disabled={busy}>Delete</button>}
+          {!isNew&&<button className="b bd bs" onClick={async()=>{if(!confirm("Delete this session?"))return;setBusy(true);await onDel(s.id);setBusy(false)}} disabled={busy}>Delete</button>}
           {!isNew&&<button className="b bg bs" onClick={async()=>{setBusy(true);await onDup(s);onClose();setBusy(false)}} disabled={busy}>Duplicate</button>}
         </div>
         <div style={{display:"flex",gap:6}}>
