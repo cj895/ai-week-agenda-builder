@@ -22,9 +22,15 @@ const TRACKS = [
 ];
 
 const LOCATIONS = [
-  "ATV Main Stage", "ATV Lennox Boardroom", "ATV Pitch Practice Room",
-  "Roam Buckhead Garage", "Roam Forum", "TechRise Stage",
-  "ATV Roundtable Room 1", "ATV Roundtable Room 2", "ATV Community Room",
+  "Stage 1 — ATV Main Stage",
+  "Stage 2 — ATV Lennox Boardroom",
+  "Stage 3 — ATV Pitch Practice Room",
+  "Stage 4 — Roam Buckhead Garage",
+  "Stage 5 — Roam Forum",
+  "Stage 6 — TechRise Stage",
+  "Stage 7 — ATV Roundtable Room 1",
+  "Stage 8 — ATV Roundtable Room 2",
+  "Stage 9 — ATV Community Room",
 ];
 
 const SESSION_TYPES = [
@@ -73,9 +79,9 @@ const s = (date, start, end, type, track, title, loc, topics=[], audience=[], de
   description: desc, speakers, status: "publish",
 });
 
-const L = { ms: "ATV Main Stage", lx: "ATV Lennox Boardroom", pp: "ATV Pitch Practice Room",
-  rb: "Roam Buckhead Garage", rf: "Roam Forum", ts: "TechRise Stage",
-  r1: "ATV Roundtable Room 1", r2: "ATV Roundtable Room 2", cr: "ATV Community Room" };
+const L = { ms: "Stage 1 — ATV Main Stage", lx: "Stage 2 — ATV Lennox Boardroom", pp: "Stage 3 — ATV Pitch Practice Room",
+  rb: "Stage 4 — Roam Buckhead Garage", rf: "Stage 5 — Roam Forum", ts: "Stage 6 — TechRise Stage",
+  r1: "Stage 7 — ATV Roundtable Room 1", r2: "Stage 8 — ATV Roundtable Room 2", cr: "Stage 9 — ATV Community Room" };
 
 const D1="2026-04-20", D2="2026-04-21", D3="2026-04-22";
 
@@ -186,24 +192,26 @@ const INITIAL_SESSIONS = [
   s(D2,"15:00","15:30","Debate","ai-strategy","Start Fast or Start Right? The AI Use Case Debate",L.ts,
     ["AI Strategy","Pilot to Production","ROI","Implementation"],["Executive","Practitioner"]),
 
+  // Day 2 Fixed Anchor: VIP Happy Hour
+  s(D2,"16:00","18:00","Social Event","networking","VIP Happy Hour",L.cr,["Community Building","Partnerships"],["Executive"]),
+
   // ═══ DAY 3 — HOW DO WE IMPLEMENT? ═══
-  s(D3,"08:00","09:00","Social Event","networking","Women in AI & Tech Breakfast",L.cr,
+  // Day 3 Fixed Anchor: Women in AI & Tech Breakfast 8:00-10:00 AM
+  s(D3,"08:00","10:00","Social Event","networking","Women in AI & Tech Breakfast",L.cr,
     ["Community Building","Partnerships","Workforce Readiness"],["Executive","Beginner Friendly"]),
 
-  // Main Stage Morning (all attendees 9:00-11:30)
-  s(D3,"09:00","09:15","Keynote","ai-in-action","Welcome to Day 3 — How Do We Implement?",L.ms,["AI Strategy","Implementation"],["Executive","Beginner Friendly"]),
-  s(D3,"09:25","09:55","Keynote","ai-in-action","Reality Bites: AI Governance in the Field",L.ms,
+  // Main Stage Morning (all attendees 10:00-11:30, no breakouts)
+  s(D3,"10:00","10:15","Keynote","ai-in-action","Welcome to Day 3 — How Do We Implement?",L.ms,["AI Strategy","Implementation"],["Executive","Beginner Friendly"]),
+  s(D3,"10:25","10:55","Keynote","ai-in-action","Reality Bites: AI Governance in the Field",L.ms,
     ["Executive Governance","Compliance","Responsible AI","Risk Management"],["Executive"],
     "Privacy advisor Jodi Daniels and technology attorney Justin Daniels move beyond theory to discuss the practical challenges organizations face when implementing AI governance."),
-  s(D3,"10:05","10:55","Fireside Chat","ai-in-action","Protecting Georgia's Children in the Age of AI: A Multi-Pronged Policy Approach",L.ms,
+  s(D3,"11:05","11:20","Fireside Chat","ai-in-action","Protecting Georgia's Children in the Age of AI: A Multi-Pronged Policy Approach",L.ms,
     ["Responsible AI","Compliance","Privacy","Risk Management"],["Executive"],
     "AI-powered platforms are shaping what children see, learn, and believe — often without guardrails. This session unpacks the real risks facing kids online and what legislation could mean for companies and families."),
-  s(D3,"11:05","11:20","Presentation","ai-in-action","Inside a $2B Transformation: Modernizing Aramark Correctional Services at Scale",L.ms,
-    ["Implementation","Case Studies","Business Outcomes","Pilot to Production"],["Executive","Enterprise","Case Study"]),
 
   // Concurrent Slot A: 11:40-12:10
-  s(D3,"11:40","12:10","Workshop","ai-strategy","AI Is Scaling. Your People Aren't. Now What?",L.ms,
-    ["Workforce Readiness","Change Management","Adoption","Organizational Alignment"],["Executive","Practitioner","Workshop"]),
+  s(D3,"11:40","12:10","Presentation","ai-in-action","Inside a $2B Transformation: Modernizing Aramark Correctional Services at Scale",L.ms,
+    ["Implementation","Case Studies","Business Outcomes","Pilot to Production"],["Executive","Enterprise","Case Study"]),
   s(D3,"11:40","12:10","Panel","exec-governance","When Your Eyes & Ears Are Powered by AI — Balancing Productivity and Privacy",L.lx,
     ["Privacy","Executive Governance","Compliance","Responsible AI"],["Executive"]),
   s(D3,"11:40","12:10","Panel","architecture","What's Real vs Hype in AI Right Now?",L.pp,
