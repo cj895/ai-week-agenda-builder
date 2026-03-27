@@ -1,0 +1,24 @@
+{
+  "name": "ai-week-agenda-builder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agenda management dashboard for Atlanta AI Week 2026 — Enterprise Technology Association",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cj895/ai-week-agenda-builder.git"
+  },
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.3"
+  }
+}
