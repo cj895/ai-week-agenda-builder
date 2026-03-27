@@ -39,9 +39,9 @@ function buildSkeleton(days){
   // Morning main stage (no breakouts 9:00-11:30)
   ss.push(slot(D2,"08:00","09:00","Networking","networking",L0,"Registration & Morning Networking"));
   ss.push(slot(D2,"09:00","09:15","Keynote","ai-in-action",L0));
-  ss.push(slot(D2,"09:25","09:55","Keynote","ai-in-action",L0));
-  ss.push(slot(D2,"10:05","10:35","Panel","ai-in-action",L0));
-  ss.push(slot(D2,"10:45","11:20","Fireside Chat","ai-in-action",L0));
+  ss.push(slot(D2,"09:15","09:45","Keynote","ai-in-action",L0));
+  ss.push(slot(D2,"09:45","10:15","Panel","ai-in-action",L0));
+  ss.push(slot(D2,"10:15","10:50","Fireside Chat","ai-in-action",L0));
 
   // Concurrent slots — 5 time blocks, 8 stages each (+ main stage)
   const d2Slots=[["11:40","12:10"],["12:20","12:50"],["13:40","14:10"],["14:20","14:50"],["15:00","15:30"]];
@@ -69,8 +69,8 @@ function buildSkeleton(days){
   ss.push(slot(D3,"08:00","10:00","Social Event","networking",L8,"Women in AI & Tech Breakfast"));
   // Morning main stage (no breakouts 10:00-11:30)
   ss.push(slot(D3,"10:00","10:15","Keynote","ai-in-action",L0));
-  ss.push(slot(D3,"10:25","10:55","Keynote","ai-in-action",L0));
-  ss.push(slot(D3,"11:05","11:20","Fireside Chat","ai-in-action",L0));
+  ss.push(slot(D3,"10:15","10:45","Keynote","ai-in-action",L0));
+  ss.push(slot(D3,"10:45","11:00","Fireside Chat","ai-in-action",L0));
 
   const d3Slots=[["11:40","12:10"],["12:20","12:50"],["13:40","14:10"],["14:20","14:50"],["15:00","15:30"]];
   const d3Grid=[
@@ -106,9 +106,9 @@ function mkAtlanta(){
 
   // Day 2 morning
   fill(D2,"09:00",L0,{title:"Welcome & Opening Remarks",sponsor:"Enterprise Technology Association"});
-  fill(D2,"09:25",L0,{title:"What Happens After the Demo: A Real Look at AI, Process, and Work That Actually Ships",sponsor:"CRZY Design",description:"Stephen Gates pulls back the curtain on how AI is actually being used in real client work. Real examples from Metallica to industrial startups.",topicTags:["Implementation","Case Studies","Business Outcomes"],audienceTags:["Executive","Practitioner"]});
-  fill(D2,"10:05",L0,{title:"Inside Big Tech: How AI Actually Gets Built & Deployed",topicTags:["Implementation","Infrastructure","LLMs"],audienceTags:["Technical","Enterprise"]});
-  fill(D2,"10:45",L0,{title:"AI Under Constraints: What Regulated Industries Can Teach Everyone Else",topicTags:["Compliance","Risk Management","Responsible AI"],audienceTags:["Executive","Enterprise"]});
+  fill(D2,"09:15",L0,{title:"What Happens After the Demo: A Real Look at AI, Process, and Work That Actually Ships",sponsor:"CRZY Design",description:"Stephen Gates pulls back the curtain on how AI is actually being used in real client work. Real examples from Metallica to industrial startups.",topicTags:["Implementation","Case Studies","Business Outcomes"],audienceTags:["Executive","Practitioner"]});
+  fill(D2,"09:45",L0,{title:"Inside Big Tech: How AI Actually Gets Built & Deployed",topicTags:["Implementation","Infrastructure","LLMs"],audienceTags:["Technical","Enterprise"]});
+  fill(D2,"10:15",L0,{title:"AI Under Constraints: What Regulated Industries Can Teach Everyone Else",topicTags:["Compliance","Risk Management","Responsible AI"],audienceTags:["Executive","Enterprise"]});
 
   // Day 2 Slot A
   fill(D2,"11:40",L0,{title:"Atlanta\u2019s Advantage: Why This City Will Lead AI"});
@@ -159,8 +159,8 @@ function mkAtlanta(){
 
   // Day 3 morning
   fill(D3,"10:00",L0,{title:"Welcome to Day 3 \u2014 How Do We Implement?",sponsor:"Enterprise Technology Association"});
-  fill(D3,"10:25",L0,{title:"Reality Bites: AI Governance in the Field",description:"Jodi Daniels and Justin Daniels discuss practical AI governance challenges."});
-  fill(D3,"11:05",L0,{title:"Protecting Georgia\u2019s Children in the Age of AI",sponsor:"Enterprise Technology Association"});
+  fill(D3,"10:15",L0,{title:"Reality Bites: AI Governance in the Field",description:"Jodi Daniels and Justin Daniels discuss practical AI governance challenges."});
+  fill(D3,"10:45",L0,{title:"Protecting Georgia\u2019s Children in the Age of AI",sponsor:"Enterprise Technology Association"});
 
   // Day 3 Slot A
   fill(D3,"11:40",L0,{title:"Inside a $2B Transformation: Modernizing Aramark at Scale"});
