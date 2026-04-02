@@ -12,6 +12,7 @@ const TRACKS = [
   { id: "exec-governance", name: "Executive Governance & Organizational Alignment", bg: "#455A64", fg: "#FFFFFF" },
   { id: "ai-security", name: "AI Security, Risk & Compliance", bg: "#D50000", fg: "#FFFFFF" },
   { id: "marketing-ops", name: "AI for Marketing, Operations & Productivity", bg: "#AEEA00", fg: "#001324" },
+  { id: "industry-spotlight", name: "Industry Spotlight", bg: "#795548", fg: "#FFFFFF" },
 ];
 const SESSION_TYPES = ["Keynote","Panel","Workshop","Fireside Chat","Roundtable","Presentation","SME Spotlight","Startup Pitch","Networking","Social Event","Debate"];
 const TOPIC_TAGS = ["AI Strategy","Use Case Discovery","ROI","Change Management","Adoption","Workforce Readiness","Data Readiness","Data Governance","Data Architecture","Infrastructure","LLMs","Agents","RAG","Prompt Engineering","Model Evaluation","AI Security","Risk Management","Compliance","Privacy","Responsible AI","Executive Governance","Organizational Alignment","Implementation","Pilot to Production","Case Studies","Business Outcomes","Automation","Productivity","Marketing AI","Operations","Founders","Fundraising","Enterprise Sales","Community Building","Partnerships"];
