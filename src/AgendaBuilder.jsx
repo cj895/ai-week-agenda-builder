@@ -136,17 +136,18 @@ body{background:#F8F9FB}
 .dt{display:flex;gap:3px;margin-top:10px;flex-wrap:wrap}
 .dtb{font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:7px 14px;border-radius:25px;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.55);transition:all .2s;white-space:nowrap}.dtb:hover{background:rgba(255,255,255,.12);color:#fff}.dtb.a{background:var(--aqua);color:var(--prussian);border-color:var(--aqua)}
 .sb{display:flex;gap:20px;padding:14px 28px;background:#fff;border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center}
-.st{display:flex;align-items:baseline;gap:5px}.sn{font-weight:800;font-size:20px;color:var(--spectrum)}.sn.warn{color:#F59E0B}.sl{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
+.st{display:flex;align-items:baseline;gap:5px}.sn{font-weight:800;font-size:20px;color:var(--spectrum)}.sn.warn{color:#F59E0B}.sn.await{color:#A855F7}.sl{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
 .fb{display:flex;gap:8px;padding:14px 28px;background:#fff;border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center}
 .si{font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:25px;padding:7px 14px;background:var(--bg2);min-width:200px;color:var(--t1)}.si:focus{outline:none;border-color:var(--azure)}
 .fs{font-family:'DM Sans',sans-serif;font-size:11px;border:1px solid var(--bdr);border-radius:25px;padding:7px 12px;background:#fff;color:var(--t1);cursor:pointer}
 .ag{display:grid;gap:10px;padding:20px 28px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 .sc{background:#fff;border-radius:var(--r);border:1px solid var(--bdr);overflow:hidden;cursor:grab;transition:all .2s;box-shadow:var(--sh)}.sc:hover{box-shadow:var(--shl);transform:translateY(-2px)}.sc.empty{border:2px dashed #F59E0B;background:rgba(245,158,11,.03)}
+.sc.awaiting{border:2px dashed #A855F7;background:rgba(168,85,247,.04)}
 .sc.dragging{opacity:.4;transform:scale(.95);box-shadow:none}
 .sc:active{cursor:grabbing}
 .ctb{height:4px;width:100%}.cb{padding:14px}
 .ct{font-family:${mono};font-size:10px;color:var(--t3);margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
-.ctl{font-weight:700;font-size:13px;line-height:1.35;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ctl.needs{color:#F59E0B;font-style:italic}
+.ctl{font-weight:700;font-size:13px;line-height:1.35;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ctl.needs{color:#F59E0B;font-style:italic}.ctl.await-title{color:#A855F7;font-style:italic}
 .cm{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}
 .cp{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:25px}
 .csp{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--t2);display:flex;align-items:center;gap:3px;margin-top:6px}
@@ -203,10 +204,16 @@ export default function AgendaBuilder(){
 
   const ev=events.find(e=>e.id===eid);const ss=ev?.sessions||[];const days=ev?.days||[];const stages=ev?.stages||ATL_STAGES;
   const trk=id=>TRACKS.find(t=>t.id===id)||TRACKS[0];
-  const isEmpty=s=>!s.title.trim();const emptyCount=ss.filter(isEmpty).length;const filledCount=ss.filter(s=>!isEmpty(s)).length;
-  const filtered=ss.filter(s=>{if(s.date!==aDay)return false;if(fT!=="all"&&s.trackId!==fT)return false;if(fL!=="all"&&s.location!==fL)return false;if(fTy!=="all"&&s.sessionType!==fTy)return false;if(fEmpty==="empty"&&!isEmpty(s))return false;if(fEmpty==="filled"&&isEmpty(s))return false;if(search){const q=search.toLowerCase();return s.title.toLowerCase().includes(q)||s.speakers?.some(sp=>sp.toLowerCase().includes(q))||s.description?.toLowerCase().includes(q)||s.sponsor?.toLowerCase().includes(q)}return true}).sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location));
+  const noTitle=s=>!s.title.trim();
+  const hasDetails=s=>(s.speakers||[]).length>0||s.description?.trim()||s.sponsor?.trim()||(s.topicTags||[]).length>0;
+  const awaitingTitle=s=>noTitle(s)&&hasDetails(s);
+  const emptyCount=ss.filter(noTitle).length;
+  const awaitCount=ss.filter(awaitingTitle).length;
+  const filledCount=ss.filter(s=>!noTitle(s)).length;
+  const filtered=ss.filter(s=>{if(s.date!==aDay)return false;if(fT!=="all"&&s.trackId!==fT)return false;if(fL!=="all"&&s.location!==fL)return false;if(fTy!=="all"&&s.sessionType!==fTy)return false;if(fEmpty==="empty"&&!noTitle(s))return false;if(fEmpty==="awaiting"&&!awaitingTitle(s))return false;if(fEmpty==="filled"&&noTitle(s))return false;if(search){const q=search.toLowerCase();return s.title.toLowerCase().includes(q)||s.speakers?.some(sp=>sp.toLowerCase().includes(q))||s.description?.toLowerCase().includes(q)||s.sponsor?.toLowerCase().includes(q)}return true}).sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location));
   const dc={};days.forEach(d=>{dc[d.id]=ss.filter(x=>x.date===d.id).length});
-  const dcE={};days.forEach(d=>{dcE[d.id]=ss.filter(x=>x.date===d.id&&isEmpty(x)).length});
+  const dcE={};days.forEach(d=>{dcE[d.id]=ss.filter(x=>x.date===d.id&&noTitle(x)).length});
+  const dcA={};days.forEach(d=>{dcA[d.id]=ss.filter(x=>x.date===d.id&&awaitingTitle(x)).length});
 
   const save=async(s)=>{setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:e.sessions.find(x=>x.id===s.id)?e.sessions.map(x=>x.id===s.id?s:x):[...e.sessions,s]}:e));setModal(false);setEdit(null);flash();await supabase.from("sessions").upsert(toDb(s,eid))};
   const del=async(id)=>{setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:e.sessions.filter(x=>x.id!==id)}:e));setModal(false);setEdit(null);flash();await supabase.from("sessions").delete().eq("id",id)};
@@ -271,12 +278,13 @@ export default function AgendaBuilder(){
         {events.map(e=><button key={e.id} className={`evb ${eid===e.id?"a":""}`} onClick={()=>{setEid(e.id);setADay(e.days[1]?.id||e.days[0]?.id)}}>{e.name}</button>)}
         <button className="evb add" onClick={()=>setNeModal(true)}>+ New Event</button>
       </div>
-      {days.length>0&&<div className="dt">{days.map(d=><button key={d.id} className={`dtb ${aDay===d.id?"a":""}`} onClick={()=>setADay(d.id)}>{d.label} {"\u2014"} {d.subtitle} ({dc[d.id]||0}){dcE[d.id]>0&&<span style={{opacity:.6,marginLeft:4}}>{"\u2022"} {dcE[d.id]} open</span>}</button>)}</div>}
+      {days.length>0&&<div className="dt">{days.map(d=><button key={d.id} className={`dtb ${aDay===d.id?"a":""}`} onClick={()=>setADay(d.id)}>{d.label} {"\u2014"} {d.subtitle} ({dc[d.id]||0}){dcE[d.id]>0&&<span style={{opacity:.6,marginLeft:4}}>{"\u2022"} {dcE[d.id]} open</span>}{dcA[d.id]>0&&<span style={{opacity:.8,marginLeft:4,color:"#c084fc"}}>{"\u2022"} {dcA[d.id]} awaiting</span>}</button>)}</div>}
     </div>
     <div className="sb">
       <div className="st"><span className="sn">{ss.length}</span><span className="sl">Slots</span></div>
       <div className="st"><span className="sn">{filledCount}</span><span className="sl">Filled</span></div>
       <div className="st"><span className={`sn ${emptyCount>0?"warn":""}`}>{emptyCount}</span><span className="sl">Open</span></div>
+      <div className="st"><span className={`sn ${awaitCount>0?"await":""}`}>{awaitCount}</span><span className="sl">Awaiting Title</span></div>
       <div className="st"><span className="sn">{new Set(ss.flatMap(s=>s.speakers||[])).size}</span><span className="sl">Speakers</span></div>
       <div className="st"><span className="sn">{new Set(ss.filter(s=>s.sponsor?.trim()).map(s=>s.sponsor)).size}</span><span className="sl">Sponsors</span></div>
       <div style={{flex:1}}/>
@@ -288,11 +296,11 @@ export default function AgendaBuilder(){
       <select className="fs" value={fT} onChange={e=>setFT(e.target.value)}><option value="all">All Tracks</option>{TRACKS.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
       <select className="fs" value={fL} onChange={e=>setFL(e.target.value)}><option value="all">All Stages</option>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
       <select className="fs" value={fTy} onChange={e=>setFTy(e.target.value)}><option value="all">All Types</option>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
-      <div className="fonly">{["all","empty","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":"Filled"}</button>)}</div>
+      <div className="fonly">{["all","empty","awaiting","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":v==="awaiting"?"Awaiting Title":"Filled"}</button>)}</div>
     </div>
     {filtered.length===0?(<div className="es"><h3>No Matches</h3><p>Try adjusting filters.</p></div>):(
-      <div className="ag">{filtered.map(s=>{const t=trk(s.trackId);const empty=isEmpty(s);return(
-        <div key={s.id} className={`sc ${empty?"empty":""} ${dragId===s.id?"dragging":""}`} draggable
+      <div className="ag">{filtered.map(s=>{const t=trk(s.trackId);const empty=noTitle(s);const await_=awaitingTitle(s);return(
+        <div key={s.id} className={`sc ${await_?"awaiting":empty?"empty":""} ${dragId===s.id?"dragging":""}`} draggable
           onDragStart={e=>{setDragId(s.id);e.dataTransfer.effectAllowed="move"}}
           onDragEnd={()=>setDragId(null)}
           onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move"}}
@@ -300,7 +308,7 @@ export default function AgendaBuilder(){
           onClick={()=>{if(dragId)return;setEdit({...s,speakers:[...(s.speakers||[])],topicTags:[...(s.topicTags||[])],audienceTags:[...(s.audienceTags||[])]});setModal(true)}}>
           <div className="ctb" style={{background:t.bg}}/><div className="cb">
             <div className="ct"><span>{"\u2630"} {to12h(s.startTime)} {"\u2014"} {to12h(s.endTime)}</span><span className="cp" style={{background:t.bg+"20",color:t.bg}}>{t.name.length>28?t.name.slice(0,25)+"\u2026":t.name}</span></div>
-            <div className={`ctl ${empty?"needs":""}`}>{empty?"\u26A0 OPEN SLOT \u2014 Needs Title":s.title}</div>
+            <div className={`ctl ${await_?"await-title":empty?"needs":""}`}>{await_?"\uD83D\uDD14 AWAITING TITLE \u2014 Has Details":empty?"\u26A0 OPEN SLOT \u2014 Needs Title":s.title}</div>
             <div className="cm"><span className="cp" style={{background:"var(--bg2)",color:"var(--t2)"}}>{s.sessionType}</span>{(s.topicTags||[]).slice(0,2).map(tg=><span key={tg} className="cp" style={{background:"rgba(0,132,255,.08)",color:"var(--azure)"}}>{tg}</span>)}</div>
             {s.sponsor?.trim()&&<div className="cspon">Sponsored by {s.sponsor}</div>}
             {(s.speakers||[]).length>0&&<div className="csp">{"\uD83C\uDFA4"} {s.speakers.slice(0,3).join(", ")}{s.speakers.length>3?` +${s.speakers.length-3}`:""}</div>}
