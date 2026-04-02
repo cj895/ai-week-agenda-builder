@@ -2,16 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
 
 const TRACKS = [
-  { id: "startup-showcase", name: "Startup Showcase", bg: "#00C2FF", fg: "#001324" },
-  { id: "networking", name: "Community Networking", bg: "#00E0B8", fg: "#001324" },
-  { id: "ai-strategy", name: "AI Strategy & Use Cases", bg: "#0084FF", fg: "#FFFFFF" },
-  { id: "ai-adoption", name: "AI Adoption & Change Management", bg: "#5B8CFF", fg: "#FFFFFF" },
-  { id: "data-infra", name: "Data Readiness & Infrastructure", bg: "#7A5CFF", fg: "#FFFFFF" },
-  { id: "architecture", name: "Architecture, Models & Technical Stack", bg: "#4B3BFF", fg: "#FFFFFF" },
-  { id: "ai-in-action", name: "AI in Action", bg: "#006DFF", fg: "#FFFFFF" },
-  { id: "exec-governance", name: "Executive Governance & Organizational Alignment", bg: "#1F3A5F", fg: "#FFFFFF" },
-  { id: "ai-security", name: "AI Security, Risk & Compliance", bg: "#003B8E", fg: "#FFFFFF" },
-  { id: "marketing-ops", name: "AI for Marketing, Operations & Productivity", bg: "#00A3A3", fg: "#001324" },
+  { id: "startup-showcase", name: "Startup Showcase", bg: "#FFD600", fg: "#001324" },
+  { id: "networking", name: "Community Networking", bg: "#00C853", fg: "#001324" },
+  { id: "ai-strategy", name: "AI Strategy & Use Cases", bg: "#0055FF", fg: "#FFFFFF" },
+  { id: "ai-adoption", name: "AI Adoption & Change Management", bg: "#FF8800", fg: "#001324" },
+  { id: "data-infra", name: "Data Readiness & Infrastructure", bg: "#00BCD4", fg: "#001324" },
+  { id: "architecture", name: "Architecture, Models & Technical Stack", bg: "#7B2FBE", fg: "#FFFFFF" },
+  { id: "ai-in-action", name: "AI in Action", bg: "#FF0066", fg: "#FFFFFF" },
+  { id: "exec-governance", name: "Executive Governance & Organizational Alignment", bg: "#455A64", fg: "#FFFFFF" },
+  { id: "ai-security", name: "AI Security, Risk & Compliance", bg: "#D50000", fg: "#FFFFFF" },
+  { id: "marketing-ops", name: "AI for Marketing, Operations & Productivity", bg: "#AEEA00", fg: "#001324" },
 ];
 const SESSION_TYPES = ["Keynote","Panel","Workshop","Fireside Chat","Roundtable","Presentation","SME Spotlight","Startup Pitch","Networking","Social Event","Debate"];
 const TOPIC_TAGS = ["AI Strategy","Use Case Discovery","ROI","Change Management","Adoption","Workforce Readiness","Data Readiness","Data Governance","Data Architecture","Infrastructure","LLMs","Agents","RAG","Prompt Engineering","Model Evaluation","AI Security","Risk Management","Compliance","Privacy","Responsible AI","Executive Governance","Organizational Alignment","Implementation","Pilot to Production","Case Studies","Business Outcomes","Automation","Productivity","Marketing AI","Operations","Founders","Fundraising","Enterprise Sales","Community Building","Partnerships"];
