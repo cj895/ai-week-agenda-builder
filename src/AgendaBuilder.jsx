@@ -284,13 +284,17 @@ export default function AgendaBuilder(){
     setSel(new Set());setBulkStgModal(false);
   };
 
-  // Bulk copy to a stage/day
-  const bulkCopy=async(targetDay,targetLoc,wipe=false)=>{
+  // Bulk copy to stage(s)/day — targetLocs is an array of stages or null to keep original
+  const bulkCopy=async(targetDay,targetLocs,wipe=false)=>{
     const ids=[...sel];
-    const copies=ids.map(id=>{const orig=ss.find(x=>x.id===id);if(!orig)return null;const base=wipe?wipeContent(orig):orig;return{...base,id:uid(),date:targetDay||orig.date,location:targetLoc||orig.location,locked:false}}).filter(Boolean);
-    setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:[...e.sessions,...copies]}:e));
+    const locs=targetLocs&&targetLocs.length>0?targetLocs:[null]; // null = keep original location
+    const allCopies=[];
+    for(const loc of locs){
+      ids.forEach(id=>{const orig=ss.find(x=>x.id===id);if(!orig)return;const base=wipe?wipeContent(orig):orig;allCopies.push({...base,id:uid(),date:targetDay||orig.date,location:loc||orig.location,locked:false})});
+    }
+    setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:[...e.sessions,...allCopies]}:e));
     flash();
-    const dbRows=copies.map(s=>toDb(s,eid));
+    const dbRows=allCopies.map(s=>toDb(s,eid));
     for(let i=0;i<dbRows.length;i+=50){await supabase.from("sessions").insert(dbRows.slice(i,i+50))}
     setSel(new Set());setBulkCopyModal(false);
   };
@@ -539,39 +543,40 @@ function BulkStgModal({stages,count,onApply,onClose}){
 
 function BulkCopyModal({days,stages,count,onApply,onClose}){
   const[day,setDay]=useState(days[1]?.id||days[0]?.id);
-  const[loc,setLoc]=useState(stages[0]||"");
-  const[keepLoc,setKeepLoc]=useState(true);
+  const[selLocs,setSelLocs]=useState(new Set());
+  const[changeLoc,setChangeLoc]=useState(false);
   const[wipe,setWipe]=useState(false);
   const[busy,setBusy]=useState(false);
+  const togLoc=l=>{const n=new Set(selLocs);if(n.has(l))n.delete(l);else n.add(l);setSelLocs(n)};
+  const total=changeLoc&&selLocs.size>0?count*selLocs.size:count;
   return(
-    <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:420}}>
+    <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:460}}>
       <h2>Copy Sessions</h2>
-      <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,fontFamily:"'DM Sans',sans-serif"}}>Copy {count} selected session{count>1?"s":""} to another day or stage. Times are preserved.</p>
-      <div className="fg">
-        <div className="fgr f">
-          <label className="fl">Target Day</label>
-          <select className="fsl" value={day} onChange={e=>setDay(e.target.value)}>{days.map(d=><option key={d.id} value={d.id}>{d.label} {"\u2014"} {d.subtitle}</option>)}</select>
-        </div>
-        <div className="fgr f" style={{marginTop:8}}>
-          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t2)"}}>
-            <input type="checkbox" checked={!keepLoc} onChange={()=>setKeepLoc(!keepLoc)} style={{accentColor:"var(--spectrum)"}} />
-            Change stage on copies
-          </label>
-        </div>
-        {!keepLoc&&<div className="fgr f">
-          <label className="fl">Target Stage</label>
-          <select className="fsl" value={loc} onChange={e=>setLoc(e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
-        </div>}
-        <div className="fgr f" style={{marginTop:4}}>
-          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t2)"}}>
-            <input type="checkbox" checked={wipe} onChange={()=>setWipe(!wipe)} style={{accentColor:"var(--spectrum)"}} />
-            Clear all content (copy as empty slots with times only)
-          </label>
-        </div>
+      <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,fontFamily:"'DM Sans',sans-serif"}}>Copy {count} session{count>1?"s":""}. Times are preserved. Select multiple stages to copy to each one.</p>
+      <div className="fgr f">
+        <label className="fl">Target Day</label>
+        <select className="fsl" value={day} onChange={e=>setDay(e.target.value)}>{days.map(d=><option key={d.id} value={d.id}>{d.label} {"\u2014"} {d.subtitle}</option>)}</select>
       </div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:20}}>
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t2)",marginTop:14}}>
+        <input type="checkbox" checked={changeLoc} onChange={()=>{setChangeLoc(!changeLoc);if(changeLoc)setSelLocs(new Set())}} style={{accentColor:"var(--spectrum)"}} />
+        Copy to specific stage(s)
+      </label>
+      {changeLoc&&<div style={{marginTop:10,maxHeight:200,overflowY:"auto",border:"1px solid var(--bdr)",borderRadius:"var(--rs)",padding:8}}>
+        {stages.map(l=>(
+          <label key={l} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t1)",padding:"4px 0"}}>
+            <input type="checkbox" checked={selLocs.has(l)} onChange={()=>togLoc(l)} style={{accentColor:"var(--spectrum)"}} />
+            {l}
+          </label>
+        ))}
+      </div>}
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t2)",marginTop:14}}>
+        <input type="checkbox" checked={wipe} onChange={()=>setWipe(!wipe)} style={{accentColor:"var(--spectrum)"}} />
+        Clear all content (copy as empty slots with times only)
+      </label>
+      {total>0&&<p style={{fontSize:11,color:"var(--t3)",marginTop:12,fontFamily:"'DM Sans',sans-serif"}}>This will create {total} new session{total>1?"s":""}.</p>}
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
         <button className="b bg bs" onClick={onClose}>Cancel</button>
-        <button className="b bp bs" disabled={busy} onClick={async()=>{setBusy(true);await onApply(day,keepLoc?null:loc,wipe);setBusy(false)}}>{busy?"Copying...":"Copy Sessions"}</button>
+        <button className="b bp bs" disabled={busy||(changeLoc&&selLocs.size===0)} onClick={async()=>{setBusy(true);await onApply(day,changeLoc?[...selLocs]:null,wipe);setBusy(false)}}>{busy?"Copying...":"Copy "+total+" Session"+(total>1?"s":"")}</button>
       </div>
     </div></div>);
 }
