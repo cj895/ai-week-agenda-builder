@@ -271,10 +271,13 @@ export default function AgendaBuilder(){
   const selNone=()=>setSel(new Set());
   const selCount=sel.size;
 
+  // Wipe content helper — keeps structure, clears user content
+  const wipeContent=s=>({...s,title:"",speakers:[],sponsor:"",description:"",topicTags:[],audienceTags:[]});
+
   // Bulk change stage
-  const bulkChangeStage=async(newLoc)=>{
+  const bulkChangeStage=async(newLoc,wipe=false)=>{
     const ids=[...sel];
-    const updated=ss.map(s=>ids.includes(s.id)?{...s,location:newLoc}:s);
+    const updated=ss.map(s=>ids.includes(s.id)?{...(wipe?wipeContent(s):s),location:newLoc}:s);
     setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:updated}:e));
     flash();
     for(const id of ids){const s=updated.find(x=>x.id===id);if(s)await supabase.from("sessions").upsert(toDb(s,eid))}
@@ -282,9 +285,9 @@ export default function AgendaBuilder(){
   };
 
   // Bulk copy to a stage/day
-  const bulkCopy=async(targetDay,targetLoc)=>{
+  const bulkCopy=async(targetDay,targetLoc,wipe=false)=>{
     const ids=[...sel];
-    const copies=ids.map(id=>{const orig=ss.find(x=>x.id===id);if(!orig)return null;return{...orig,id:uid(),date:targetDay||orig.date,location:targetLoc||orig.location,locked:false}}).filter(Boolean);
+    const copies=ids.map(id=>{const orig=ss.find(x=>x.id===id);if(!orig)return null;const base=wipe?wipeContent(orig):orig;return{...base,id:uid(),date:targetDay||orig.date,location:targetLoc||orig.location,locked:false}}).filter(Boolean);
     setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:[...e.sessions,...copies]}:e));
     flash();
     const dbRows=copies.map(s=>toDb(s,eid));
@@ -513,6 +516,7 @@ function NEModal({onCreate,onClose}){
 
 function BulkStgModal({stages,count,onApply,onClose}){
   const[loc,setLoc]=useState(stages[0]||"");
+  const[wipe,setWipe]=useState(false);
   const[busy,setBusy]=useState(false);
   return(
     <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:420}}>
@@ -522,9 +526,13 @@ function BulkStgModal({stages,count,onApply,onClose}){
         <label className="fl">New Stage</label>
         <select className="fsl" value={loc} onChange={e=>setLoc(e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
       </div>
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t2)",marginTop:14}}>
+        <input type="checkbox" checked={wipe} onChange={()=>setWipe(!wipe)} style={{accentColor:"var(--spectrum)"}} />
+        Clear all content (keep times, track, and type only)
+      </label>
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:20}}>
         <button className="b bg bs" onClick={onClose}>Cancel</button>
-        <button className="b bp bs" disabled={busy} onClick={async()=>{setBusy(true);await onApply(loc);setBusy(false)}}>{busy?"Moving...":"Move Sessions"}</button>
+        <button className="b bp bs" disabled={busy} onClick={async()=>{setBusy(true);await onApply(loc,wipe);setBusy(false)}}>{busy?"Moving...":"Move Sessions"}</button>
       </div>
     </div></div>);
 }
@@ -533,6 +541,7 @@ function BulkCopyModal({days,stages,count,onApply,onClose}){
   const[day,setDay]=useState(days[1]?.id||days[0]?.id);
   const[loc,setLoc]=useState(stages[0]||"");
   const[keepLoc,setKeepLoc]=useState(true);
+  const[wipe,setWipe]=useState(false);
   const[busy,setBusy]=useState(false);
   return(
     <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:420}}>
@@ -553,10 +562,16 @@ function BulkCopyModal({days,stages,count,onApply,onClose}){
           <label className="fl">Target Stage</label>
           <select className="fsl" value={loc} onChange={e=>setLoc(e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
         </div>}
+        <div className="fgr f" style={{marginTop:4}}>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t2)"}}>
+            <input type="checkbox" checked={wipe} onChange={()=>setWipe(!wipe)} style={{accentColor:"var(--spectrum)"}} />
+            Clear all content (copy as empty slots with times only)
+          </label>
+        </div>
       </div>
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:20}}>
         <button className="b bg bs" onClick={onClose}>Cancel</button>
-        <button className="b bp bs" disabled={busy} onClick={async()=>{setBusy(true);await onApply(day,keepLoc?null:loc);setBusy(false)}}>{busy?"Copying...":"Copy Sessions"}</button>
+        <button className="b bp bs" disabled={busy} onClick={async()=>{setBusy(true);await onApply(day,keepLoc?null:loc,wipe);setBusy(false)}}>{busy?"Copying...":"Copy Sessions"}</button>
       </div>
     </div></div>);
 }
