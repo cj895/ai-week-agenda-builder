@@ -16,7 +16,30 @@ const TRACKS = [
 const SESSION_TYPES = ["Keynote","Panel","Workshop","Fireside Chat","Roundtable","Presentation","Demo","Startup Pitch","Networking","Social Event","Debate"];
 const TOPIC_TAGS = ["AI Strategy","Use Case Discovery","ROI","Change Management","Adoption","Workforce Readiness","Data Readiness","Data Governance","Data Architecture","Infrastructure","LLMs","Agents","RAG","Prompt Engineering","Model Evaluation","AI Security","Risk Management","Compliance","Privacy","Responsible AI","Executive Governance","Organizational Alignment","Implementation","Pilot to Production","Case Studies","Business Outcomes","Automation","Productivity","Marketing AI","Operations","Founders","Fundraising","Enterprise Sales","Community Building","Partnerships"];
 const AUDIENCE_TAGS = ["Executive","Practitioner","Technical","Beginner Friendly","Advanced","Panel","Workshop","Roundtable","Fireside Chat","Case Study","Demo","Startup","Enterprise"];
-const TIMES=[];for(let h=7;h<=21;h++)for(let m=0;m<60;m+=5)TIMES.push(String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"));
+// Time helpers: store in 24h, display in 12h, let users type naturally
+function parseTime(input){
+  if(!input)return null;
+  let s=input.trim().toLowerCase().replace(/\s+/g,"");
+  // Already 24h like "14:30"
+  let m=s.match(/^(\d{1,2}):(\d{2})$/);
+  if(m){const h=parseInt(m[1]),mi=parseInt(m[2]);if(h>=0&&h<=23&&mi>=0&&mi<=59)return String(h).padStart(2,"0")+":"+String(mi).padStart(2,"0")}
+  // 12h with am/pm like "2:30pm", "2:30 pm", "230pm"
+  m=s.match(/^(\d{1,2}):?(\d{2})?\s*(am|pm)$/);
+  if(m){let h=parseInt(m[1]),mi=parseInt(m[2]||"0");const ap=m[3];if(ap==="pm"&&h!==12)h+=12;if(ap==="am"&&h===12)h=0;if(h>=0&&h<=23&&mi>=0&&mi<=59)return String(h).padStart(2,"0")+":"+String(mi).padStart(2,"0")}
+  // Just a number like "9" or "14"
+  m=s.match(/^(\d{1,2})$/);
+  if(m){const h=parseInt(m[1]);if(h>=0&&h<=23)return String(h).padStart(2,"0")+":00"}
+  // Number with am/pm like "9am" "2pm"
+  m=s.match(/^(\d{1,2})(am|pm)$/);
+  if(m){let h=parseInt(m[1]);const ap=m[2];if(ap==="pm"&&h!==12)h+=12;if(ap==="am"&&h===12)h=0;if(h>=0&&h<=23)return String(h).padStart(2,"0")+":00"}
+  return null;
+}
+function to12h(t24){
+  if(!t24)return"";
+  const[hh,mm]=t24.split(":").map(Number);
+  const ap=hh>=12?"PM":"AM";const h=hh===0?12:hh>12?hh-12:hh;
+  return h+":"+String(mm).padStart(2,"0")+" "+ap;
+}
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 
 const ATL_STAGES=["Stage 1 \u2014 ATV Main Stage","Stage 2 \u2014 ATV Lennox Boardroom","Stage 3 \u2014 ATV Pitch Practice Room","Stage 4 \u2014 Roam Buckhead Garage","Stage 5 \u2014 Roam Forum","Stage 6 \u2014 TechRise Stage","Stage 7 \u2014 ATV Roundtable Room 1","Stage 8 \u2014 ATV Roundtable Room 2","Stage 9 \u2014 ATV Community Room"];
@@ -276,7 +299,7 @@ export default function AgendaBuilder(){
           onDrop={e=>{e.preventDefault();if(dragId&&dragId!==s.id)swapSessions(dragId,s.id);setDragId(null)}}
           onClick={()=>{if(dragId)return;setEdit({...s,speakers:[...(s.speakers||[])],topicTags:[...(s.topicTags||[])],audienceTags:[...(s.audienceTags||[])]});setModal(true)}}>
           <div className="ctb" style={{background:t.bg}}/><div className="cb">
-            <div className="ct"><span>{"\u2630"} {s.startTime} {"\u2014"} {s.endTime}</span><span className="cp" style={{background:t.bg+"20",color:t.bg}}>{t.name.length>28?t.name.slice(0,25)+"\u2026":t.name}</span></div>
+            <div className="ct"><span>{"\u2630"} {to12h(s.startTime)} {"\u2014"} {to12h(s.endTime)}</span><span className="cp" style={{background:t.bg+"20",color:t.bg}}>{t.name.length>28?t.name.slice(0,25)+"\u2026":t.name}</span></div>
             <div className={`ctl ${empty?"needs":""}`}>{empty?"\u26A0 OPEN SLOT \u2014 Needs Title":s.title}</div>
             <div className="cm"><span className="cp" style={{background:"var(--bg2)",color:"var(--t2)"}}>{s.sessionType}</span>{(s.topicTags||[]).slice(0,2).map(tg=><span key={tg} className="cp" style={{background:"rgba(0,132,255,.08)",color:"var(--azure)"}}>{tg}</span>)}</div>
             {s.sponsor?.trim()&&<div className="cspon">Sponsored by {s.sponsor}</div>}
@@ -292,6 +315,10 @@ export default function AgendaBuilder(){
 function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}){
   const[s,setS]=useState(init);const[spk,setSpk]=useState("");const[busy,setBusy]=useState(false);
   const[addingStage,setAddingStage]=useState(false);const[newStg,setNewStg]=useState("");
+  const[startDisp,setStartDisp]=useState(to12h(init.startTime));
+  const[endDisp,setEndDisp]=useState(to12h(init.endTime));
+  const[startErr,setStartErr]=useState(false);
+  const[endErr,setEndErr]=useState(false);
   const set=(k,v)=>setS(p=>({...p,[k]:v}));
   const addSp=()=>{const n=spk.trim();if(n&&!(s.speakers||[]).includes(n)){set("speakers",[...(s.speakers||[]),n]);setSpk("")}};
   const remSp=i=>set("speakers",(s.speakers||[]).filter((_,j)=>j!==i));
@@ -299,6 +326,8 @@ function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}
   const togA=t=>{const tags=s.audienceTags||[];set("audienceTags",tags.includes(t)?tags.filter(x=>x!==t):[...tags,t])};
   const doSave=async()=>{setBusy(true);await onSave(s);setBusy(false)};
   const doAddStage=async()=>{const n=newStg.trim();if(!n)return;await onAddStage(n);set("location",n);setNewStg("");setAddingStage(false)};
+  const handleStartBlur=()=>{const p=parseTime(startDisp);if(p){set("startTime",p);setStartDisp(to12h(p));setStartErr(false)}else{setStartErr(true)}};
+  const handleEndBlur=()=>{const p=parseTime(endDisp);if(p){set("endTime",p);setEndDisp(to12h(p));setEndErr(false)}else{setEndErr(true)}};
   return(
     <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="ml">
       <div className="mh"><h2>{isNew?"Add Session":"Edit Session"}</h2><button className="xb" onClick={onClose}>{"\u00D7"}</button></div>
@@ -320,8 +349,8 @@ function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}
               </div>
             )}
           </div>
-          <div className="fgr"><label className="fl">Start Time</label><select className="fsl" value={s.startTime} onChange={e=>set("startTime",e.target.value)}>{TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-          <div className="fgr"><label className="fl">End Time</label><select className="fsl" value={s.endTime} onChange={e=>set("endTime",e.target.value)}>{TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+          <div className="fgr"><label className="fl">Start Time</label><input className="fi" style={startErr?{borderColor:"#EF4444"}:{}} value={startDisp} onChange={e=>{setStartDisp(e.target.value);setStartErr(false)}} onBlur={handleStartBlur} placeholder="e.g. 9:00 AM, 2pm, 14:30" /></div>
+          <div className="fgr"><label className="fl">End Time</label><input className="fi" style={endErr?{borderColor:"#EF4444"}:{}} value={endDisp} onChange={e=>{setEndDisp(e.target.value);setEndErr(false)}} onBlur={handleEndBlur} placeholder="e.g. 10:30 AM, 3pm, 15:30" /></div>
           <div className="fgr"><label className="fl">Track</label><select className="fsl" value={s.trackId} onChange={e=>set("trackId",e.target.value)}>{TRACKS.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
           <div className="fgr"><label className="fl">Session Type</label><select className="fsl" value={s.sessionType} onChange={e=>set("sessionType",e.target.value)}>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
         </div>
