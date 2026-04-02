@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
 
-const TRACKS = [
+const DEFAULT_TRACKS = [
   { id: "startup-showcase", name: "Startup Showcase", bg: "#FFD600", fg: "#001324" },
   { id: "networking", name: "Community Networking", bg: "#00C853", fg: "#001324" },
   { id: "ai-strategy", name: "AI Strategy & Use Cases", bg: "#0055FF", fg: "#FFFFFF" },
@@ -110,7 +110,7 @@ function mkAtlanta(){
   fill(D3,"13:40",S0,{title:"Robots Are Ready. Are Your Teams?"});fill(D3,"13:40",S1,{title:"Who Should Own AI Risk?"});fill(D3,"13:40",S2,{title:"Building AI Products with Gen AI"});fill(D3,"13:40",S3,{title:"Building AI for the 99%"});fill(D3,"13:40",S4,{title:"What to Watch When AI Goes Live"});fill(D3,"13:40",S5,{title:"What Game Design Teaches Us About AI"});
   fill(D3,"14:20",S0,{title:"Blue Collar AI 2.0"});fill(D3,"14:20",S1,{title:"The AI Talent Gap"});fill(D3,"14:20",S2,{title:"Build Your First GenAI App"});fill(D3,"14:20",S3,{title:"Red Teaming AI",sponsor:"AXE.AI"});fill(D3,"14:20",S4,{title:"AI Isn\u2019t Failing \u2014 Our Learning Models Are",sponsor:"USAII"});fill(D3,"14:20",S5,{title:"How AI Is Rewriting Search"});
   fill(D3,"15:00",S0,{title:"Eliminate Busywork and Scale Without Hiring"});fill(D3,"15:00",S1,{title:"The Small Business GenAI Playbook"});fill(D3,"15:00",S2,{title:"Governed by Design"});fill(D3,"15:00",S3,{title:"AI Governance in Practice",sponsor:"Nexigen"});fill(D3,"15:00",S4,{title:"AI, Creativity, and Community"});fill(D3,"15:00",S5,{title:"Is AI Strengthening Security?"});
-  return{id:"atlanta-2026",name:"Atlanta",dates:days.map(d=>d.id),days,stages:ATL_STAGES,sessions:ss};
+  return{id:"atlanta-2026",name:"Atlanta",dates:days.map(d=>d.id),days,stages:ATL_STAGES,tracks:DEFAULT_TRACKS,sessions:ss};
 }
 
 const font=`'Poppins','DM Sans',system-ui,sans-serif`;const mono=`'JetBrains Mono',monospace`;
@@ -179,13 +179,17 @@ body{background:#F8F9FB}
 .stg-row input{flex:1}
 .stg-num{font-family:${mono};font-size:10px;color:var(--t3);width:18px;text-align:right;flex-shrink:0}
 .stg-del{width:24px;height:24px;border-radius:50%;border:1px solid var(--bdr);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--t3);flex-shrink:0}.stg-del:hover{background:#fee;color:#ef4444;border-color:#ef4444}
+.trk-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px 10px;border-radius:var(--rs);border:1px solid var(--bdr);background:#fff}
+.trk-row input[type=text]{flex:1}
+.trk-swatch{width:28px;height:28px;border-radius:6px;border:1px solid var(--bdr);cursor:pointer;flex-shrink:0;padding:0}
+.trk-fg{font-family:'DM Sans',sans-serif;font-size:10px;padding:4px 8px;border-radius:25px;border:1px solid var(--bdr);background:#fff;cursor:pointer}
 @media(max-width:640px){.hd{padding:16px 14px 14px}.sb,.fb,.ag{padding-left:14px;padding-right:14px}.ag{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.ml,.nem{max-width:100%}}
 `;
 
 export default function AgendaBuilder(){
   const[events,setEvents]=useState([]);const[eid,setEid]=useState(null);const[aDay,setADay]=useState(null);
   const[edit,setEdit]=useState(null);const[modal,setModal]=useState(false);
-  const[neModal,setNeModal]=useState(false);const[stgModal,setStgModal]=useState(false);
+  const[neModal,setNeModal]=useState(false);const[stgModal,setStgModal]=useState(false);const[trkModal,setTrkModal]=useState(false);
   const[search,setSearch]=useState("");const[fT,setFT]=useState("all");const[fL,setFL]=useState("all");const[fTy,setFTy]=useState("all");const[fEmpty,setFEmpty]=useState("all");
   const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);
   const[dragId,setDragId]=useState(null);
@@ -200,11 +204,11 @@ export default function AgendaBuilder(){
     const{data:evRows}=await supabase.from("events").select("*").order("created_at");
     if(evRows&&evRows.length>0){
       const{data:sessRows}=await supabase.from("sessions").select("*");
-      const loaded=evRows.map(e=>({id:e.id,name:e.name,dates:e.dates,days:e.days,stages:e.stages||ATL_STAGES,sessions:(sessRows||[]).filter(s=>s.event_id===e.id).map(fromDb)}));
+      const loaded=evRows.map(e=>({id:e.id,name:e.name,dates:e.dates,days:e.days,stages:e.stages||ATL_STAGES,tracks:e.tracks||DEFAULT_TRACKS,sessions:(sessRows||[]).filter(s=>s.event_id===e.id).map(fromDb)}));
       setEvents(loaded);setEid(loaded[0].id);setADay(loaded[0].days[1]?.id||loaded[0].days[0].id);
     } else {
       const atl=mkAtlanta();const evId=atl.id;
-      await supabase.from("events").insert({id:evId,name:atl.name,dates:atl.dates,days:atl.days,stages:atl.stages});
+      await supabase.from("events").insert({id:evId,name:atl.name,dates:atl.dates,days:atl.days,stages:atl.stages,tracks:atl.tracks});
       const dbRows=atl.sessions.map(s=>toDb(s,evId));
       for(let i=0;i<dbRows.length;i+=50){await supabase.from("sessions").insert(dbRows.slice(i,i+50))}
       setEvents([atl]);setEid(evId);setADay(atl.days[1].id);
@@ -212,8 +216,8 @@ export default function AgendaBuilder(){
     setLoading(false);
   })()},[]);
 
-  const ev=events.find(e=>e.id===eid);const ss=ev?.sessions||[];const days=ev?.days||[];const stages=ev?.stages||ATL_STAGES;
-  const trk=id=>TRACKS.find(t=>t.id===id)||TRACKS[0];
+  const ev=events.find(e=>e.id===eid);const ss=ev?.sessions||[];const days=ev?.days||[];const stages=ev?.stages||ATL_STAGES;const tracks=ev?.tracks||DEFAULT_TRACKS;
+  const trk=id=>tracks.find(t=>t.id===id)||tracks[0]||DEFAULT_TRACKS[0];
   const noTitle=s=>!s.title.trim();
   const hasDetails=s=>(s.speakers||[]).length>0||s.description?.trim()||s.sponsor?.trim()||(s.topicTags||[]).length>0;
   const awaitingTitle=s=>noTitle(s)&&hasDetails(s);
@@ -232,10 +236,10 @@ export default function AgendaBuilder(){
   const createEv=async(name,d1,d2,d3,stgs)=>{
     const ds=[{id:d1,label:"Day 1",subtitle:"Community Day"},{id:d2,label:"Day 2",subtitle:"Conference Day 1"},{id:d3,label:"Day 3",subtitle:"Conference Day 2"}];
     const evId=uid();const newSs=buildSkeleton(ds,stgs);
-    await supabase.from("events").insert({id:evId,name,dates:[d1,d2,d3],days:ds,stages:stgs});
+    await supabase.from("events").insert({id:evId,name,dates:[d1,d2,d3],days:ds,stages:stgs,tracks:DEFAULT_TRACKS});
     const dbRows=newSs.map(s=>toDb(s,evId));
     for(let i=0;i<dbRows.length;i+=50){await supabase.from("sessions").insert(dbRows.slice(i,i+50))}
-    setEvents(p=>[...p,{id:evId,name,dates:[d1,d2,d3],days:ds,stages:stgs,sessions:newSs}]);
+    setEvents(p=>[...p,{id:evId,name,dates:[d1,d2,d3],days:ds,stages:stgs,tracks:DEFAULT_TRACKS,sessions:newSs}]);
     setEid(evId);setADay(ds[1].id);setNeModal(false);flash();
   };
 
@@ -243,6 +247,12 @@ export default function AgendaBuilder(){
     setEvents(p=>p.map(e=>e.id===eid?{...e,stages:newStages}:e));
     flash();await supabase.from("events").update({stages:newStages}).eq("id",eid);
     setStgModal(false);
+  };
+
+  const saveTracks=async(newTracks)=>{
+    setEvents(p=>p.map(e=>e.id===eid?{...e,tracks:newTracks}:e));
+    flash();await supabase.from("events").update({tracks:newTracks}).eq("id",eid);
+    setTrkModal(false);
   };
 
   const resetSkeleton=async()=>{if(!ev||!confirm("Reset "+ev.name+" to empty skeleton?"))return;const ss2=buildSkeleton(ev.days,stages);await supabase.from("sessions").delete().eq("event_id",eid);const dbRows=ss2.map(s=>toDb(s,eid));for(let i=0;i<dbRows.length;i+=50){await supabase.from("sessions").insert(dbRows.slice(i,i+50))}setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:ss2}:e));flash()};
@@ -356,11 +366,12 @@ export default function AgendaBuilder(){
       <div className="st"><span className="sn">{new Set(ss.filter(s=>s.sponsor?.trim()).map(s=>s.sponsor)).size}</span><span className="sl">Sponsors</span></div>
       <div style={{flex:1}}/>
       <button className="b bg bs" onClick={()=>setStgModal(true)}>{"\u2699"} Stages</button>
+      <button className="b bg bs" onClick={()=>setTrkModal(true)}>{"\uD83C\uDFA8"} Tracks</button>
       {ev&&<button className="b bg bs" onClick={resetSkeleton}>Reset</button>}
     </div>
     <div className="fb">
       <input className="si" placeholder="Search sessions, speakers, sponsors..." value={search} onChange={e=>setSearch(e.target.value)} />
-      <select className="fs" value={fT} onChange={e=>setFT(e.target.value)}><option value="all">All Tracks</option>{TRACKS.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
+      <select className="fs" value={fT} onChange={e=>setFT(e.target.value)}><option value="all">All Tracks</option>{tracks.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
       <select className="fs" value={fL} onChange={e=>setFL(e.target.value)}><option value="all">All Stages</option>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
       <select className="fs" value={fTy} onChange={e=>setFTy(e.target.value)}><option value="all">All Types</option>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
       <div className="fonly">{["all","empty","awaiting","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":v==="awaiting"?"Awaiting Title":"Filled"}</button>)}</div>
@@ -394,16 +405,17 @@ export default function AgendaBuilder(){
             {(s.speakers||[]).length>0&&<div className="csp">{"\uD83C\uDFA4"} {s.speakers.slice(0,3).join(", ")}{s.speakers.length>3?` +${s.speakers.length-3}`:""}</div>}
             <div className="cl">{"\uD83D\uDCCD"} {s.location}</div>
           </div></div>)})}</div>)}
-    {modal&&edit&&<SModal s={edit} days={days} stages={stages} isNew={!ss.find(x=>x.id===edit.id)} onSave={save} onDel={del} onDup={dup} onAddStage={addStage} onClose={()=>{setModal(false);setEdit(null)}} />}
+    {modal&&edit&&<SModal s={edit} days={days} stages={stages} tracks={tracks} isNew={!ss.find(x=>x.id===edit.id)} onSave={save} onDel={del} onDup={dup} onAddStage={addStage} onClose={()=>{setModal(false);setEdit(null)}} />}
     {neModal&&<NEModal onCreate={createEv} onClose={()=>setNeModal(false)} />}
     {stgModal&&<StgModal stages={stages} onSave={saveStages} onClose={()=>setStgModal(false)} />}
+    {trkModal&&<TrkModal tracks={tracks} onSave={saveTracks} onClose={()=>setTrkModal(false)} />}
     {bulkStgModal&&<BulkStgModal stages={stages} count={selCount} onApply={bulkChangeStage} onClose={()=>setBulkStgModal(false)} />}
     {bulkCopyModal&&<BulkCopyModal days={days} stages={stages} count={selCount} onApply={bulkCopy} onClose={()=>setBulkCopyModal(false)} />}
     {exportModal&&<ExportModal days={days} stages={stages} sessCount={ss.length} onExport={doExport} onClose={()=>setExportModal(false)} />}
     </div>);
 }
 
-function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}){
+function SModal({s:init,days,stages,tracks,isNew,onSave,onDel,onDup,onAddStage,onClose}){
   const[s,setS]=useState(init);const[spk,setSpk]=useState("");const[busy,setBusy]=useState(false);
   const[addingStage,setAddingStage]=useState(false);const[newStg,setNewStg]=useState("");
   const[startDisp,setStartDisp]=useState(to12h(init.startTime));
@@ -442,7 +454,7 @@ function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}
           </div>
           <div className="fgr"><label className="fl">Start Time</label><input className="fi" style={startErr?{borderColor:"#EF4444"}:{}} value={startDisp} onChange={e=>{setStartDisp(e.target.value);setStartErr(false)}} onBlur={handleStartBlur} placeholder="e.g. 9:00 AM, 2pm, 14:30" /></div>
           <div className="fgr"><label className="fl">End Time</label><input className="fi" style={endErr?{borderColor:"#EF4444"}:{}} value={endDisp} onChange={e=>{setEndDisp(e.target.value);setEndErr(false)}} onBlur={handleEndBlur} placeholder="e.g. 10:30 AM, 3pm, 15:30" /></div>
-          <div className="fgr"><label className="fl">Track</label><select className="fsl" value={s.trackId} onChange={e=>set("trackId",e.target.value)}>{TRACKS.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+          <div className="fgr"><label className="fl">Track</label><select className="fsl" value={s.trackId} onChange={e=>set("trackId",e.target.value)}>{tracks.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
           <div className="fgr"><label className="fl">Session Type</label><select className="fsl" value={s.sessionType} onChange={e=>set("sessionType",e.target.value)}>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
         </div>
         <div className="fgr f" style={{marginTop:18}}><label className="fl">Sponsor</label><input className="fi" value={s.sponsor||""} onChange={e=>set("sponsor",e.target.value)} placeholder="Sponsor name (optional)..." /></div>
@@ -628,6 +640,36 @@ function ExportModal({days,stages,sessCount,onExport,onClose}){
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
         <button className="b bg bs" onClick={onClose}>Cancel</button>
         <button className="b bp bs" onClick={()=>onExport(mode==="day"||mode==="both"?day:null,mode==="stage"||mode==="both"?loc:null)}>{"\u2193"} Download CSV</button>
+      </div>
+    </div></div>);
+}
+
+function TrkModal({tracks:init,onSave,onClose}){
+  const[trks,setTrks]=useState(init.map(t=>({...t})));
+  const[busy,setBusy]=useState(false);
+  const upd=(i,k,v)=>{const n=[...trks];n[i]={...n[i],[k]:v};setTrks(n)};
+  const add=()=>{const id="track-"+Date.now().toString(36);setTrks([...trks,{id,name:"New Track",bg:"#607D8B",fg:"#FFFFFF"}])};
+  const rem=i=>{if(trks.length<=1)return;setTrks(trks.filter((_,j)=>j!==i))};
+  const togFg=(i)=>{upd(i,"fg",trks[i].fg==="#FFFFFF"?"#001324":"#FFFFFF")};
+  return(
+    <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:560}}>
+      <h2>Manage Tracks</h2>
+      <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,fontFamily:"'DM Sans',sans-serif"}}>Add, edit, or remove tracks for this event. Each track has a name and color. Existing sessions keep their track assignment.</p>
+      <div style={{maxHeight:400,overflowY:"auto",marginBottom:12}}>
+        {trks.map((t,i)=>(
+          <div key={t.id} className="trk-row">
+            <div style={{width:6,height:28,borderRadius:3,background:t.bg,flexShrink:0}} />
+            <input className="fi" style={{fontSize:12}} value={t.name} onChange={e=>upd(i,"name",e.target.value)} placeholder="Track name..." />
+            <input type="color" className="trk-swatch" value={t.bg} onChange={e=>upd(i,"bg",e.target.value)} title="Background color" />
+            <button className="trk-fg" onClick={()=>togFg(i)} style={{background:t.fg,color:t.fg==="#FFFFFF"?"#333":"#fff",borderColor:t.fg==="#FFFFFF"?"var(--bdr)":t.fg}} title="Toggle text color">{t.fg==="#FFFFFF"?"Light":"Dark"}</button>
+            <button className="stg-del" onClick={()=>rem(i)} title="Remove track">{"\u00D7"}</button>
+          </div>
+        ))}
+      </div>
+      <button className="b bg bs" onClick={add} style={{marginBottom:12}}>+ Add Track</button>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button className="b bg bs" onClick={onClose}>Cancel</button>
+        <button className="b bp bs" disabled={busy||trks.some(t=>!t.name.trim())} onClick={async()=>{setBusy(true);await onSave(trks.filter(t=>t.name.trim()));setBusy(false)}}>{busy?"Saving...":"Save Tracks"}</button>
       </div>
     </div></div>);
 }
