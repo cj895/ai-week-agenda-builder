@@ -168,6 +168,10 @@ body{background:#F8F9FB}
 .nem{background:#fff;border-radius:20px;padding:28px;max-width:540px;width:100%;box-shadow:var(--shl)}.nem h2{font-weight:800;font-size:18px;text-transform:uppercase;margin-bottom:16px}
 .fonly{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
 .fbtn{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;padding:4px 10px;border-radius:25px;cursor:pointer;border:1px solid var(--bdr);background:#fff;color:var(--t2)}.fbtn.active{background:var(--aqua);color:var(--prussian);border-color:var(--aqua)}
+.bbar{display:flex;gap:8px;padding:12px 28px;background:var(--prussian);align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:40}
+.bcount{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--aqua);margin-right:8px}
+.chk{width:14px;height:14px;cursor:pointer;accent-color:var(--spectrum);vertical-align:middle;margin-right:4px}
+.sc.selected{outline:2px solid var(--spectrum);outline-offset:-2px}
 .load{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:${font};font-weight:800;font-size:16px;color:var(--t3);text-transform:uppercase}
 .stg-row{display:flex;gap:6px;align-items:center;margin-bottom:8px}
 .stg-row input{flex:1}
@@ -183,6 +187,9 @@ export default function AgendaBuilder(){
   const[search,setSearch]=useState("");const[fT,setFT]=useState("all");const[fL,setFL]=useState("all");const[fTy,setFTy]=useState("all");const[fEmpty,setFEmpty]=useState("all");
   const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);
   const[dragId,setDragId]=useState(null);
+  const[sel,setSel]=useState(new Set()); // selected session IDs for bulk ops
+  const[bulkStgModal,setBulkStgModal]=useState(false);
+  const[bulkCopyModal,setBulkCopyModal]=useState(false);
   const saveTimer=useRef(null);
   const flash=()=>{setSaving(true);clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>setSaving(false),1200)};
 
@@ -258,6 +265,43 @@ export default function AgendaBuilder(){
     flash();await supabase.from("events").update({stages:updated}).eq("id",eid);
   };
 
+  // Bulk selection helpers
+  const toggleSel=id=>{const n=new Set(sel);if(n.has(id))n.delete(id);else n.add(id);setSel(n)};
+  const selAll=()=>{const ids=new Set(filtered.map(s=>s.id));setSel(ids)};
+  const selNone=()=>setSel(new Set());
+  const selCount=sel.size;
+
+  // Bulk change stage
+  const bulkChangeStage=async(newLoc)=>{
+    const ids=[...sel];
+    const updated=ss.map(s=>ids.includes(s.id)?{...s,location:newLoc}:s);
+    setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:updated}:e));
+    flash();
+    for(const id of ids){const s=updated.find(x=>x.id===id);if(s)await supabase.from("sessions").upsert(toDb(s,eid))}
+    setSel(new Set());setBulkStgModal(false);
+  };
+
+  // Bulk copy to a stage/day
+  const bulkCopy=async(targetDay,targetLoc)=>{
+    const ids=[...sel];
+    const copies=ids.map(id=>{const orig=ss.find(x=>x.id===id);if(!orig)return null;return{...orig,id:uid(),date:targetDay||orig.date,location:targetLoc||orig.location,locked:false}}).filter(Boolean);
+    setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:[...e.sessions,...copies]}:e));
+    flash();
+    const dbRows=copies.map(s=>toDb(s,eid));
+    for(let i=0;i<dbRows.length;i+=50){await supabase.from("sessions").insert(dbRows.slice(i,i+50))}
+    setSel(new Set());setBulkCopyModal(false);
+  };
+
+  // Bulk delete
+  const bulkDelete=async()=>{
+    if(!confirm(`Delete ${selCount} selected sessions?`))return;
+    const ids=[...sel];
+    setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:e.sessions.filter(x=>!ids.includes(x.id))}:e));
+    flash();
+    for(const id of ids){await supabase.from("sessions").delete().eq("id",id)}
+    setSel(new Set());
+  };
+
   const newS=()=>({id:uid(),date:aDay||days[1]?.id||days[0]?.id,startTime:"11:40",endTime:"12:10",title:"",trackId:"ai-in-action",sessionType:"Panel",location:stages[0]||"Stage 1",topicTags:[],audienceTags:[],speakers:[],sponsor:"",description:"",status:"publish",locked:false});
 
   const exportCSV=()=>{if(!ev)return;const hdr=["Date","Track","Title","Start Time","End Time","Location","Checkin Type","Background Color","Text Color","Tags","Speakers","Session Type","RSVP","Capacity","Sponsor","Description","Main Video","Main Video Restrict","Other Video1","Other Video1 Restrict","Other Video2","Other Video2 Restrict","Other Video3","Other Video3 Restrict","Other Video4","Other Video4 Restrict","File1","File2","File3","File4","File5","Send Push Before #Minutes","Send Push Text","Status"];const esc=v=>{const x=String(v||"");return x.includes(",")||x.includes('"')||x.includes("\n")?`"${x.replace(/"/g,'""')}"`:x};const rows=[...ss].sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location)).map(s=>{const t=trk(s.trackId);const tags=[...(s.topicTags||[]),...(s.audienceTags||[])].join(",");return[s.date,t.name,s.title||"TBD",s.startTime,s.endTime,s.location,"",t.bg,t.fg,tags,(s.speakers||[]).join(","),s.sessionType,"No","Unlimited",s.sponsor||"",s.description||"","","","","","","","","","","","","","","","","","",s.status].map(esc).join(",")});const csv="\uFEFF"+hdr.join(",")+"\n"+rows.join("\n");const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=ev.name+"_AI_Week_Eventify.csv";a.click();URL.revokeObjectURL(url)};
@@ -298,16 +342,29 @@ export default function AgendaBuilder(){
       <select className="fs" value={fTy} onChange={e=>setFTy(e.target.value)}><option value="all">All Types</option>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
       <div className="fonly">{["all","empty","awaiting","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":v==="awaiting"?"Awaiting Title":"Filled"}</button>)}</div>
     </div>
+    {/* Bulk action bar */}
+    {selCount>0&&<div className="bbar">
+      <span className="bcount">{selCount} selected</span>
+      <button className="b bp bs" onClick={()=>setBulkStgModal(true)}>Change Stage</button>
+      <button className="b bo bs" style={{background:"var(--prussian)",color:"#fff",borderColor:"var(--prussian)"}} onClick={()=>setBulkCopyModal(true)}>Copy To...</button>
+      <button className="b bd bs" onClick={bulkDelete}>Delete</button>
+      <div style={{flex:1}}/>
+      <button className="b bg bs" onClick={selAll}>Select All ({filtered.length})</button>
+      <button className="b bg bs" onClick={selNone}>Deselect</button>
+    </div>}
     {filtered.length===0?(<div className="es"><h3>No Matches</h3><p>Try adjusting filters.</p></div>):(
-      <div className="ag">{filtered.map(s=>{const t=trk(s.trackId);const empty=noTitle(s);const await_=awaitingTitle(s);return(
-        <div key={s.id} className={`sc ${await_?"awaiting":empty?"empty":""} ${dragId===s.id?"dragging":""}`} draggable
+      <div className="ag">{filtered.map(s=>{const t=trk(s.trackId);const empty=noTitle(s);const await_=awaitingTitle(s);const isSel=sel.has(s.id);return(
+        <div key={s.id} className={`sc ${await_?"awaiting":empty?"empty":""} ${dragId===s.id?"dragging":""} ${isSel?"selected":""}`} draggable
           onDragStart={e=>{setDragId(s.id);e.dataTransfer.effectAllowed="move"}}
           onDragEnd={()=>setDragId(null)}
           onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move"}}
           onDrop={e=>{e.preventDefault();if(dragId&&dragId!==s.id)swapSessions(dragId,s.id);setDragId(null)}}
           onClick={()=>{if(dragId)return;setEdit({...s,speakers:[...(s.speakers||[])],topicTags:[...(s.topicTags||[])],audienceTags:[...(s.audienceTags||[])]});setModal(true)}}>
           <div className="ctb" style={{background:t.bg}}/><div className="cb">
-            <div className="ct"><span>{"\u2630"} {to12h(s.startTime)} {"\u2014"} {to12h(s.endTime)}</span><span className="cp" style={{background:t.bg+"20",color:t.bg}}>{t.name.length>28?t.name.slice(0,25)+"\u2026":t.name}</span></div>
+            <div className="ct">
+              <span><input type="checkbox" className="chk" checked={isSel} onClick={e=>e.stopPropagation()} onChange={()=>toggleSel(s.id)} /> {to12h(s.startTime)} {"\u2014"} {to12h(s.endTime)}</span>
+              <span className="cp" style={{background:t.bg+"20",color:t.bg}}>{t.name.length>28?t.name.slice(0,25)+"\u2026":t.name}</span>
+            </div>
             <div className={`ctl ${await_?"await-title":empty?"needs":""}`}>{await_?"\uD83D\uDD14 AWAITING TITLE \u2014 Has Details":empty?"\u26A0 OPEN SLOT \u2014 Needs Title":s.title}</div>
             <div className="cm"><span className="cp" style={{background:"var(--bg2)",color:"var(--t2)"}}>{s.sessionType}</span>{(s.topicTags||[]).slice(0,2).map(tg=><span key={tg} className="cp" style={{background:"rgba(0,132,255,.08)",color:"var(--azure)"}}>{tg}</span>)}</div>
             {s.sponsor?.trim()&&<div className="cspon">Sponsored by {s.sponsor}</div>}
@@ -317,6 +374,8 @@ export default function AgendaBuilder(){
     {modal&&edit&&<SModal s={edit} days={days} stages={stages} isNew={!ss.find(x=>x.id===edit.id)} onSave={save} onDel={del} onDup={dup} onAddStage={addStage} onClose={()=>{setModal(false);setEdit(null)}} />}
     {neModal&&<NEModal onCreate={createEv} onClose={()=>setNeModal(false)} />}
     {stgModal&&<StgModal stages={stages} onSave={saveStages} onClose={()=>setStgModal(false)} />}
+    {bulkStgModal&&<BulkStgModal stages={stages} count={selCount} onApply={bulkChangeStage} onClose={()=>setBulkStgModal(false)} />}
+    {bulkCopyModal&&<BulkCopyModal days={days} stages={stages} count={selCount} onApply={bulkCopy} onClose={()=>setBulkCopyModal(false)} />}
     </div>);
 }
 
@@ -449,5 +508,55 @@ function NEModal({onCreate,onClose}){
           <button className="b bp bs" disabled={busy||stgs.some(s=>!s.trim())} onClick={async()=>{setBusy(true);await onCreate(name.trim(),d1,d2,d3,stgs.filter(s=>s.trim()));setBusy(false)}}>{busy?"Creating...":"Create Event"}</button>
         </div>
       </>)}
+    </div></div>);
+}
+
+function BulkStgModal({stages,count,onApply,onClose}){
+  const[loc,setLoc]=useState(stages[0]||"");
+  const[busy,setBusy]=useState(false);
+  return(
+    <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:420}}>
+      <h2>Change Stage</h2>
+      <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,fontFamily:"'DM Sans',sans-serif"}}>Move {count} selected session{count>1?"s":""} to a new stage.</p>
+      <div className="fgr f">
+        <label className="fl">New Stage</label>
+        <select className="fsl" value={loc} onChange={e=>setLoc(e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:20}}>
+        <button className="b bg bs" onClick={onClose}>Cancel</button>
+        <button className="b bp bs" disabled={busy} onClick={async()=>{setBusy(true);await onApply(loc);setBusy(false)}}>{busy?"Moving...":"Move Sessions"}</button>
+      </div>
+    </div></div>);
+}
+
+function BulkCopyModal({days,stages,count,onApply,onClose}){
+  const[day,setDay]=useState(days[1]?.id||days[0]?.id);
+  const[loc,setLoc]=useState(stages[0]||"");
+  const[keepLoc,setKeepLoc]=useState(true);
+  const[busy,setBusy]=useState(false);
+  return(
+    <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:420}}>
+      <h2>Copy Sessions</h2>
+      <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,fontFamily:"'DM Sans',sans-serif"}}>Copy {count} selected session{count>1?"s":""} to another day or stage. Times are preserved.</p>
+      <div className="fg">
+        <div className="fgr f">
+          <label className="fl">Target Day</label>
+          <select className="fsl" value={day} onChange={e=>setDay(e.target.value)}>{days.map(d=><option key={d.id} value={d.id}>{d.label} {"\u2014"} {d.subtitle}</option>)}</select>
+        </div>
+        <div className="fgr f" style={{marginTop:8}}>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"var(--t2)"}}>
+            <input type="checkbox" checked={!keepLoc} onChange={()=>setKeepLoc(!keepLoc)} style={{accentColor:"var(--spectrum)"}} />
+            Change stage on copies
+          </label>
+        </div>
+        {!keepLoc&&<div className="fgr f">
+          <label className="fl">Target Stage</label>
+          <select className="fsl" value={loc} onChange={e=>setLoc(e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
+        </div>}
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:20}}>
+        <button className="b bg bs" onClick={onClose}>Cancel</button>
+        <button className="b bp bs" disabled={busy} onClick={async()=>{setBusy(true);await onApply(day,keepLoc?null:loc);setBusy(false)}}>{busy?"Copying...":"Copy Sessions"}</button>
+      </div>
     </div></div>);
 }
