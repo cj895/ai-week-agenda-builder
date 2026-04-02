@@ -118,7 +118,9 @@ body{background:#F8F9FB}
 .si{font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:25px;padding:7px 14px;background:var(--bg2);min-width:200px;color:var(--t1)}.si:focus{outline:none;border-color:var(--azure)}
 .fs{font-family:'DM Sans',sans-serif;font-size:11px;border:1px solid var(--bdr);border-radius:25px;padding:7px 12px;background:#fff;color:var(--t1);cursor:pointer}
 .ag{display:grid;gap:10px;padding:20px 28px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
-.sc{background:#fff;border-radius:var(--r);border:1px solid var(--bdr);overflow:hidden;cursor:pointer;transition:all .2s;box-shadow:var(--sh)}.sc:hover{box-shadow:var(--shl);transform:translateY(-2px)}.sc.empty{border:2px dashed #F59E0B;background:rgba(245,158,11,.03)}
+.sc{background:#fff;border-radius:var(--r);border:1px solid var(--bdr);overflow:hidden;cursor:grab;transition:all .2s;box-shadow:var(--sh)}.sc:hover{box-shadow:var(--shl);transform:translateY(-2px)}.sc.empty{border:2px dashed #F59E0B;background:rgba(245,158,11,.03)}
+.sc.dragging{opacity:.4;transform:scale(.95);box-shadow:none}
+.sc:active{cursor:grabbing}
 .ctb{height:4px;width:100%}.cb{padding:14px}
 .ct{font-family:${mono};font-size:10px;color:var(--t3);margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
 .ctl{font-weight:700;font-size:13px;line-height:1.35;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ctl.needs{color:#F59E0B;font-style:italic}
@@ -156,6 +158,7 @@ export default function AgendaBuilder(){
   const[neModal,setNeModal]=useState(false);const[stgModal,setStgModal]=useState(false);
   const[search,setSearch]=useState("");const[fT,setFT]=useState("all");const[fL,setFL]=useState("all");const[fTy,setFTy]=useState("all");const[fEmpty,setFEmpty]=useState("all");
   const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);
+  const[dragId,setDragId]=useState(null);
   const saveTimer=useRef(null);
   const flash=()=>{setSaving(true);clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>setSaving(false),1200)};
 
@@ -204,6 +207,27 @@ export default function AgendaBuilder(){
 
   const resetSkeleton=async()=>{if(!ev||!confirm("Reset "+ev.name+" to empty skeleton?"))return;const ss2=buildSkeleton(ev.days,stages);await supabase.from("sessions").delete().eq("event_id",eid);const dbRows=ss2.map(s=>toDb(s,eid));for(let i=0;i<dbRows.length;i+=50){await supabase.from("sessions").insert(dbRows.slice(i,i+50))}setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:ss2}:e));flash()};
 
+  // Drag-and-drop: swap time+location between two sessions
+  const swapSessions=async(idA,idB)=>{
+    if(idA===idB)return;
+    const a=ss.find(x=>x.id===idA),b=ss.find(x=>x.id===idB);
+    if(!a||!b)return;
+    const swapped_a={...a,startTime:b.startTime,endTime:b.endTime,location:b.location};
+    const swapped_b={...b,startTime:a.startTime,endTime:a.endTime,location:a.location};
+    setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:e.sessions.map(x=>x.id===idA?swapped_a:x.id===idB?swapped_b:x)}:e));
+    flash();
+    await supabase.from("sessions").upsert(toDb(swapped_a,eid));
+    await supabase.from("sessions").upsert(toDb(swapped_b,eid));
+  };
+
+  // Add a new stage to this event
+  const addStage=async(name)=>{
+    if(!name.trim()||stages.includes(name.trim()))return;
+    const updated=[...stages,name.trim()];
+    setEvents(p=>p.map(e=>e.id===eid?{...e,stages:updated}:e));
+    flash();await supabase.from("events").update({stages:updated}).eq("id",eid);
+  };
+
   const newS=()=>({id:uid(),date:aDay||days[1]?.id||days[0]?.id,startTime:"11:40",endTime:"12:10",title:"",trackId:"ai-in-action",sessionType:"Panel",location:stages[0]||"Stage 1",topicTags:[],audienceTags:[],speakers:[],sponsor:"",description:"",status:"publish",locked:false});
 
   const exportCSV=()=>{if(!ev)return;const hdr=["Date","Track","Title","Start Time","End Time","Location","Checkin Type","Background Color","Text Color","Tags","Speakers","Session Type","RSVP","Capacity","Sponsor","Description","Main Video","Main Video Restrict","Other Video1","Other Video1 Restrict","Other Video2","Other Video2 Restrict","Other Video3","Other Video3 Restrict","Other Video4","Other Video4 Restrict","File1","File2","File3","File4","File5","Send Push Before #Minutes","Send Push Text","Status"];const esc=v=>{const x=String(v||"");return x.includes(",")||x.includes('"')||x.includes("\n")?`"${x.replace(/"/g,'""')}"`:x};const rows=[...ss].sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location)).map(s=>{const t=trk(s.trackId);const tags=[...(s.topicTags||[]),...(s.audienceTags||[])].join(",");return[s.date,t.name,s.title||"TBD",s.startTime,s.endTime,s.location,"",t.bg,t.fg,tags,(s.speakers||[]).join(","),s.sessionType,"No","Unlimited",s.sponsor||"",s.description||"","","","","","","","","","","","","","","","","","",s.status].map(esc).join(",")});const csv="\uFEFF"+hdr.join(",")+"\n"+rows.join("\n");const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=ev.name+"_AI_Week_Eventify.csv";a.click();URL.revokeObjectURL(url)};
@@ -245,29 +269,36 @@ export default function AgendaBuilder(){
     </div>
     {filtered.length===0?(<div className="es"><h3>No Matches</h3><p>Try adjusting filters.</p></div>):(
       <div className="ag">{filtered.map(s=>{const t=trk(s.trackId);const empty=isEmpty(s);return(
-        <div key={s.id} className={`sc ${empty?"empty":""}`} onClick={()=>{setEdit({...s,speakers:[...(s.speakers||[])],topicTags:[...(s.topicTags||[])],audienceTags:[...(s.audienceTags||[])]});setModal(true)}}>
+        <div key={s.id} className={`sc ${empty?"empty":""} ${dragId===s.id?"dragging":""}`} draggable
+          onDragStart={e=>{setDragId(s.id);e.dataTransfer.effectAllowed="move"}}
+          onDragEnd={()=>setDragId(null)}
+          onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move"}}
+          onDrop={e=>{e.preventDefault();if(dragId&&dragId!==s.id)swapSessions(dragId,s.id);setDragId(null)}}
+          onClick={()=>{if(dragId)return;setEdit({...s,speakers:[...(s.speakers||[])],topicTags:[...(s.topicTags||[])],audienceTags:[...(s.audienceTags||[])]});setModal(true)}}>
           <div className="ctb" style={{background:t.bg}}/><div className="cb">
-            <div className="ct"><span>{s.startTime} {"\u2014"} {s.endTime}</span><span className="cp" style={{background:t.bg+"20",color:t.bg}}>{t.name.length>28?t.name.slice(0,25)+"\u2026":t.name}</span></div>
+            <div className="ct"><span>{"\u2630"} {s.startTime} {"\u2014"} {s.endTime}</span><span className="cp" style={{background:t.bg+"20",color:t.bg}}>{t.name.length>28?t.name.slice(0,25)+"\u2026":t.name}</span></div>
             <div className={`ctl ${empty?"needs":""}`}>{empty?"\u26A0 OPEN SLOT \u2014 Needs Title":s.title}</div>
             <div className="cm"><span className="cp" style={{background:"var(--bg2)",color:"var(--t2)"}}>{s.sessionType}</span>{(s.topicTags||[]).slice(0,2).map(tg=><span key={tg} className="cp" style={{background:"rgba(0,132,255,.08)",color:"var(--azure)"}}>{tg}</span>)}</div>
             {s.sponsor?.trim()&&<div className="cspon">Sponsored by {s.sponsor}</div>}
             {(s.speakers||[]).length>0&&<div className="csp">{"\uD83C\uDFA4"} {s.speakers.slice(0,3).join(", ")}{s.speakers.length>3?` +${s.speakers.length-3}`:""}</div>}
             <div className="cl">{"\uD83D\uDCCD"} {s.location}</div>
           </div></div>)})}</div>)}
-    {modal&&edit&&<SModal s={edit} days={days} stages={stages} isNew={!ss.find(x=>x.id===edit.id)} onSave={save} onDel={del} onDup={dup} onClose={()=>{setModal(false);setEdit(null)}} />}
+    {modal&&edit&&<SModal s={edit} days={days} stages={stages} isNew={!ss.find(x=>x.id===edit.id)} onSave={save} onDel={del} onDup={dup} onAddStage={addStage} onClose={()=>{setModal(false);setEdit(null)}} />}
     {neModal&&<NEModal onCreate={createEv} onClose={()=>setNeModal(false)} />}
     {stgModal&&<StgModal stages={stages} onSave={saveStages} onClose={()=>setStgModal(false)} />}
     </div>);
 }
 
-function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onClose}){
+function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}){
   const[s,setS]=useState(init);const[spk,setSpk]=useState("");const[busy,setBusy]=useState(false);
+  const[addingStage,setAddingStage]=useState(false);const[newStg,setNewStg]=useState("");
   const set=(k,v)=>setS(p=>({...p,[k]:v}));
   const addSp=()=>{const n=spk.trim();if(n&&!(s.speakers||[]).includes(n)){set("speakers",[...(s.speakers||[]),n]);setSpk("")}};
   const remSp=i=>set("speakers",(s.speakers||[]).filter((_,j)=>j!==i));
   const togT=t=>{const tags=s.topicTags||[];set("topicTags",tags.includes(t)?tags.filter(x=>x!==t):[...tags,t])};
   const togA=t=>{const tags=s.audienceTags||[];set("audienceTags",tags.includes(t)?tags.filter(x=>x!==t):[...tags,t])};
   const doSave=async()=>{setBusy(true);await onSave(s);setBusy(false)};
+  const doAddStage=async()=>{const n=newStg.trim();if(!n)return;await onAddStage(n);set("location",n);setNewStg("");setAddingStage(false)};
   return(
     <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="ml">
       <div className="mh"><h2>{isNew?"Add Session":"Edit Session"}</h2><button className="xb" onClick={onClose}>{"\u00D7"}</button></div>
@@ -275,7 +306,20 @@ function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onClose}){
         <div className="fgr f" style={{marginBottom:14}}><label className="fl">Session Title</label><input className="fi" value={s.title} onChange={e=>set("title",e.target.value)} placeholder="Enter session title..." style={{fontSize:15,fontWeight:600}} /></div>
         <div className="fg">
           <div className="fgr"><label className="fl">Date</label><select className="fsl" value={s.date} onChange={e=>set("date",e.target.value)}>{days.map(d=><option key={d.id} value={d.id}>{d.label} {"\u2014"} {d.subtitle}</option>)}</select></div>
-          <div className="fgr"><label className="fl">Stage</label><select className="fsl" value={s.location} onChange={e=>set("location",e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select></div>
+          <div className="fgr"><label className="fl">Stage</label>
+            {addingStage?(
+              <div style={{display:"flex",gap:6}}>
+                <input className="fi" value={newStg} onChange={e=>setNewStg(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();doAddStage()}}} placeholder="New stage name..." autoFocus />
+                <button className="b bp bs" onClick={doAddStage}>Add</button>
+                <button className="b bg bs" onClick={()=>setAddingStage(false)}>{"\u00D7"}</button>
+              </div>
+            ):(
+              <div style={{display:"flex",gap:6}}>
+                <select className="fsl" style={{flex:1}} value={s.location} onChange={e=>set("location",e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
+                <button className="b bg bs" onClick={()=>setAddingStage(true)} title="Add new stage">+</button>
+              </div>
+            )}
+          </div>
           <div className="fgr"><label className="fl">Start Time</label><select className="fsl" value={s.startTime} onChange={e=>set("startTime",e.target.value)}>{TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
           <div className="fgr"><label className="fl">End Time</label><select className="fsl" value={s.endTime} onChange={e=>set("endTime",e.target.value)}>{TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
           <div className="fgr"><label className="fl">Track</label><select className="fsl" value={s.trackId} onChange={e=>set("trackId",e.target.value)}>{TRACKS.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
