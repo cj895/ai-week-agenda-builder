@@ -191,6 +191,7 @@ export default function AgendaBuilder(){
   const[sel,setSel]=useState(new Set()); // selected session IDs for bulk ops
   const[bulkStgModal,setBulkStgModal]=useState(false);
   const[bulkCopyModal,setBulkCopyModal]=useState(false);
+  const[exportModal,setExportModal]=useState(false);
   const saveTimer=useRef(null);
   const flash=()=>{setSaving(true);clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>setSaving(false),1200)};
 
@@ -312,7 +313,20 @@ export default function AgendaBuilder(){
 
   const newS=()=>({id:uid(),date:aDay||days[1]?.id||days[0]?.id,startTime:"11:40",endTime:"12:10",title:"",trackId:"ai-in-action",sessionType:"Panel",location:stages[0]||"Stage 1",topicTags:[],audienceTags:[],speakers:[],sponsor:"",description:"",status:"publish",locked:false});
 
-  const exportCSV=()=>{if(!ev)return;const hdr=["Date","Track","Title","Start Time","End Time","Location","Checkin Type","Background Color","Text Color","Tags","Speakers","Session Type","RSVP","Capacity","Sponsor","Description","Main Video","Main Video Restrict","Other Video1","Other Video1 Restrict","Other Video2","Other Video2 Restrict","Other Video3","Other Video3 Restrict","Other Video4","Other Video4 Restrict","File1","File2","File3","File4","File5","Send Push Before #Minutes","Send Push Text","Status"];const esc=v=>{const x=String(v||"");return x.includes(",")||x.includes('"')||x.includes("\n")?`"${x.replace(/"/g,'""')}"`:x};const rows=[...ss].sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location)).map(s=>{const t=trk(s.trackId);const tags=[...(s.topicTags||[]),...(s.audienceTags||[])].join(",");return[s.date,t.name,s.title||"TBD",s.startTime,s.endTime,s.location,"",t.bg,t.fg,tags,(s.speakers||[]).join(","),s.sessionType,"No","Unlimited",s.sponsor||"",s.description||"","","","","","","","","","","","","","","","","","",s.status].map(esc).join(",")});const csv="\uFEFF"+hdr.join(",")+"\n"+rows.join("\n");const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=ev.name+"_AI_Week_Eventify.csv";a.click();URL.revokeObjectURL(url)};
+  const doExport=(filterDay,filterLoc)=>{
+    if(!ev)return;
+    let data=[...ss];
+    let suffix="Full";
+    if(filterDay){data=data.filter(s=>s.date===filterDay);const d=days.find(x=>x.id===filterDay);suffix=d?d.label.replace(/\s/g,"_"):filterDay}
+    if(filterLoc){data=data.filter(s=>s.location===filterLoc);suffix+="_"+filterLoc.replace(/[^a-zA-Z0-9]/g,"_").replace(/_+/g,"_").slice(0,30)}
+    const hdr=["Date","Track","Title","Start Time","End Time","Location","Checkin Type","Background Color","Text Color","Tags","Speakers","Session Type","RSVP","Capacity","Sponsor","Description","Main Video","Main Video Restrict","Other Video1","Other Video1 Restrict","Other Video2","Other Video2 Restrict","Other Video3","Other Video3 Restrict","Other Video4","Other Video4 Restrict","File1","File2","File3","File4","File5","Send Push Before #Minutes","Send Push Text","Status"];
+    const esc=v=>{const x=String(v||"");return x.includes(",")||x.includes('"')||x.includes("\n")?`"${x.replace(/"/g,'""')}"`:x};
+    const rows=data.sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location)).map(s=>{const t=trk(s.trackId);const tags=[...(s.topicTags||[]),...(s.audienceTags||[])].join(",");return[s.date,t.name,s.title||"TBD",s.startTime,s.endTime,s.location,"",t.bg,t.fg,tags,(s.speakers||[]).join(","),s.sessionType,"No","Unlimited",s.sponsor||"",s.description||"","","","","","","","","","","","","","","","","","",s.status].map(esc).join(",")});
+    const csv="\uFEFF"+hdr.join(",")+"\n"+rows.join("\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=ev.name+"_"+suffix+"_Eventify.csv";a.click();URL.revokeObjectURL(url);
+    setExportModal(false);
+  };
 
   if(loading)return<div className="D"><style>{css}</style><div className="load">Loading agenda...</div></div>;
   return(
@@ -322,7 +336,7 @@ export default function AgendaBuilder(){
       <div className="hr">
         <div><h1>AI Week Agenda Builder</h1><div className="sub">Multi-City {"\u2022"} Cloud-Synced {"\u2022"} Eventify Ready</div></div>
         <div className="ha">
-          <button className="b bo bs" onClick={exportCSV} disabled={!ss.length}>{"\u2193"} Export CSV</button>
+          <button className="b bo bs" onClick={()=>setExportModal(true)} disabled={!ss.length}>{"\u2193"} Export CSV</button>
           <button className="b ba bs" onClick={()=>{setEdit(newS());setModal(true)}}>+ Add Session</button>
         </div>
       </div>
@@ -384,6 +398,7 @@ export default function AgendaBuilder(){
     {stgModal&&<StgModal stages={stages} onSave={saveStages} onClose={()=>setStgModal(false)} />}
     {bulkStgModal&&<BulkStgModal stages={stages} count={selCount} onApply={bulkChangeStage} onClose={()=>setBulkStgModal(false)} />}
     {bulkCopyModal&&<BulkCopyModal days={days} stages={stages} count={selCount} onApply={bulkCopy} onClose={()=>setBulkCopyModal(false)} />}
+    {exportModal&&<ExportModal days={days} stages={stages} sessCount={ss.length} onExport={doExport} onClose={()=>setExportModal(false)} />}
     </div>);
 }
 
@@ -578,6 +593,40 @@ function BulkCopyModal({days,stages,count,onApply,onClose}){
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
         <button className="b bg bs" onClick={onClose}>Cancel</button>
         <button className="b bp bs" disabled={busy||(changeLoc&&selLocs.size===0)} onClick={async()=>{setBusy(true);await onApply(day,changeLoc?[...selLocs]:null,wipe);setBusy(false)}}>{busy?"Copying...":"Copy "+total+" Session"+(total>1?"s":"")}</button>
+      </div>
+    </div></div>);
+}
+
+function ExportModal({days,stages,sessCount,onExport,onClose}){
+  const[mode,setMode]=useState("full"); // full, day, stage, both
+  const[day,setDay]=useState(days[0]?.id||"");
+  const[loc,setLoc]=useState(stages[0]||"");
+  return(
+    <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="nem" style={{maxWidth:440}}>
+      <h2>Export CSV</h2>
+      <p style={{fontSize:12,color:"var(--t2)",marginBottom:16,fontFamily:"'DM Sans',sans-serif"}}>Choose what to include in the export. Times will be in 24-hour format.</p>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        {[["full","Full Event",`All ${sessCount} sessions`],["day","By Day","Export one day only"],["stage","By Stage","Export one stage only"],["both","Day + Stage","Filter by both"]].map(([v,label,desc])=>(
+          <label key={v} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"10px 12px",borderRadius:"var(--rs)",border:`1px solid ${mode===v?"var(--spectrum)":"var(--bdr)"}`,background:mode===v?"rgba(0,85,255,.04)":"white",transition:"all .15s"}}>
+            <input type="radio" name="exp" checked={mode===v} onChange={()=>setMode(v)} style={{accentColor:"var(--spectrum)",marginTop:2}} />
+            <div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,color:"var(--t1)"}}>{label}</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"var(--t3)"}}>{desc}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+      {(mode==="day"||mode==="both")&&<div className="fgr f" style={{marginBottom:12}}>
+        <label className="fl">Day</label>
+        <select className="fsl" value={day} onChange={e=>setDay(e.target.value)}>{days.map(d=><option key={d.id} value={d.id}>{d.label} {"\u2014"} {d.subtitle} ({d.id})</option>)}</select>
+      </div>}
+      {(mode==="stage"||mode==="both")&&<div className="fgr f" style={{marginBottom:12}}>
+        <label className="fl">Stage</label>
+        <select className="fsl" value={loc} onChange={e=>setLoc(e.target.value)}>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
+      </div>}
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+        <button className="b bg bs" onClick={onClose}>Cancel</button>
+        <button className="b bp bs" onClick={()=>onExport(mode==="day"||mode==="both"?day:null,mode==="stage"||mode==="both"?loc:null)}>{"\u2193"} Download CSV</button>
       </div>
     </div></div>);
 }
