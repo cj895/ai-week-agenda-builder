@@ -216,6 +216,37 @@ export default function AgendaBuilder(){
     setLoading(false);
   })()},[]);
 
+  // ═══ REALTIME SUBSCRIPTIONS ═══
+  useEffect(()=>{
+    const channel=supabase.channel("agenda-realtime")
+      .on("postgres_changes",{event:"*",schema:"public",table:"sessions"},payload=>{
+        if(payload.eventType==="INSERT"||payload.eventType==="UPDATE"){
+          const s=fromDb(payload.new);const evId=payload.new.event_id;
+          setEvents(p=>p.map(e=>{
+            if(e.id!==evId)return e;
+            const exists=e.sessions.find(x=>x.id===s.id);
+            return{...e,sessions:exists?e.sessions.map(x=>x.id===s.id?s:x):[...e.sessions,s]};
+          }));
+        } else if(payload.eventType==="DELETE"){
+          const id=payload.old.id;
+          setEvents(p=>p.map(e=>({...e,sessions:e.sessions.filter(x=>x.id!==id)})));
+        }
+      })
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"events"},payload=>{
+        const r=payload.new;
+        setEvents(p=>p.map(e=>e.id===r.id?{...e,name:r.name,dates:r.dates,days:r.days,stages:r.stages||e.stages}:e));
+      })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"events"},payload=>{
+        const r=payload.new;
+        setEvents(p=>{if(p.find(e=>e.id===r.id))return p;return[...p,{id:r.id,name:r.name,dates:r.dates,days:r.days,stages:r.stages||ATL_STAGES,sessions:[]}]});
+      })
+      .on("postgres_changes",{event:"DELETE",schema:"public",table:"events"},payload=>{
+        setEvents(p=>p.filter(e=>e.id!==payload.old.id));
+      })
+      .subscribe();
+    return()=>{supabase.removeChannel(channel)};
+  },[]);
+
   const ev=events.find(e=>e.id===eid);const ss=ev?.sessions||[];const days=ev?.days||[];const stages=ev?.stages||ATL_STAGES;
   const trk=id=>TRACKS.find(t=>t.id===id)||TRACKS[0];
   const noTitle=s=>!s.title.trim();
