@@ -147,6 +147,8 @@ body{background:#F8F9FB}
 .sc.awaiting{border:2px dashed #A855F7;background:rgba(168,85,247,.04)}
 .sc.dragging{opacity:.4;transform:scale(.95);box-shadow:none}
 .sc:active{cursor:grabbing}
+.sc.drop-before{border-top:3px solid var(--spectrum);margin-top:-2px}
+.sc.drop-after{border-bottom:3px solid var(--spectrum);margin-bottom:-2px}
 .ctb{height:4px;width:100%}.cb{padding:14px}
 .ct{font-family:${mono};font-size:10px;color:var(--t3);margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
 .ctl{font-weight:700;font-size:13px;line-height:1.35;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ctl.needs{color:#F59E0B;font-style:italic}.ctl.await-title{color:#A855F7;font-style:italic}
@@ -220,7 +222,6 @@ export default function AgendaBuilder(){
   const emptyCount=ss.filter(noTitle).length;
   const awaitCount=ss.filter(awaitingTitle).length;
   const filledCount=ss.filter(s=>!noTitle(s)).length;
-  const filtered=ss.filter(s=>{if(s.date!==aDay)return false;if(fT!=="all"&&s.trackId!==fT)return false;if(fL!=="all"&&s.location!==fL)return false;if(fTy!=="all"&&s.sessionType!==fTy)return false;if(fEmpty==="empty"&&!noTitle(s))return false;if(fEmpty==="awaiting"&&!awaitingTitle(s))return false;if(fEmpty==="filled"&&noTitle(s))return false;if(search){const q=search.toLowerCase();return s.title.toLowerCase().includes(q)||s.speakers?.some(sp=>sp.toLowerCase().includes(q))||s.description?.toLowerCase().includes(q)||s.sponsor?.toLowerCase().includes(q)}return true}).sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location));
   const dc={};days.forEach(d=>{dc[d.id]=ss.filter(x=>x.date===d.id).length});
   const dcE={};days.forEach(d=>{dcE[d.id]=ss.filter(x=>x.date===d.id&&noTitle(x)).length});
   const dcA={};days.forEach(d=>{dcA[d.id]=ss.filter(x=>x.date===d.id&&awaitingTitle(x)).length});
@@ -247,17 +248,46 @@ export default function AgendaBuilder(){
 
   const resetSkeleton=async()=>{if(!ev||!confirm("Reset "+ev.name+" to empty skeleton?"))return;const ss2=buildSkeleton(ev.days,stages);await supabase.from("sessions").delete().eq("event_id",eid);const dbRows=ss2.map(s=>toDb(s,eid));for(let i=0;i<dbRows.length;i+=50){await supabase.from("sessions").insert(dbRows.slice(i,i+50))}setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:ss2}:e));flash()};
 
-  // Drag-and-drop: swap time+location between two sessions
-  const swapSessions=async(idA,idB)=>{
-    if(idA===idB)return;
-    const a=ss.find(x=>x.id===idA),b=ss.find(x=>x.id===idB);
-    if(!a||!b)return;
-    const swapped_a={...a,startTime:b.startTime,endTime:b.endTime,location:b.location};
-    const swapped_b={...b,startTime:a.startTime,endTime:a.endTime,location:a.location};
-    setEvents(p=>p.map(e=>e.id===eid?{...e,sessions:e.sessions.map(x=>x.id===idA?swapped_a:x.id===idB?swapped_b:x)}:e));
-    flash();
-    await supabase.from("sessions").upsert(toDb(swapped_a,eid));
-    await supabase.from("sessions").upsert(toDb(swapped_b,eid));
+  // Drag-and-drop: reorder cards visually (no time changes)
+  const[dragOrder,setDragOrder]=useState(null); // array of IDs or null for default sort
+  const[dropTarget,setDropTarget]=useState(null); // {id, pos: "before"|"after"}
+
+  // Reset manual order when day/filters change
+  useEffect(()=>{setDragOrder(null);setDropTarget(null)},[aDay,fT,fL,fTy,fEmpty,search]);
+
+  const getDisplayList=()=>{
+    const defaultSorted=ss.filter(s=>{if(s.date!==aDay)return false;if(fT!=="all"&&s.trackId!==fT)return false;if(fL!=="all"&&s.location!==fL)return false;if(fTy!=="all"&&s.sessionType!==fTy)return false;if(fEmpty==="empty"&&!noTitle(s))return false;if(fEmpty==="awaiting"&&!awaitingTitle(s))return false;if(fEmpty==="filled"&&noTitle(s))return false;if(search){const q=search.toLowerCase();return s.title.toLowerCase().includes(q)||s.speakers?.some(sp=>sp.toLowerCase().includes(q))||s.description?.toLowerCase().includes(q)||s.sponsor?.toLowerCase().includes(q)}return true}).sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location));
+    if(!dragOrder)return defaultSorted;
+    // Use manual order, appending any new items not in the order
+    const ordered=[];const seen=new Set();
+    for(const id of dragOrder){const s=defaultSorted.find(x=>x.id===id);if(s){ordered.push(s);seen.add(id)}}
+    for(const s of defaultSorted){if(!seen.has(s.id))ordered.push(s)}
+    return ordered;
+  };
+  const displayList=getDisplayList();
+
+  const handleDragOver=(e,targetId)=>{
+    e.preventDefault();e.dataTransfer.dropEffect="move";
+    const rect=e.currentTarget.getBoundingClientRect();
+    const midY=rect.top+rect.height/2;
+    const pos=e.clientY<midY?"before":"after";
+    setDropTarget({id:targetId,pos});
+  };
+  const handleDrop=(e,targetId)=>{
+    e.preventDefault();
+    if(!dragId||dragId===targetId){setDragId(null);setDropTarget(null);return}
+    const ids=displayList.map(s=>s.id);
+    const fromIdx=ids.indexOf(dragId);
+    if(fromIdx<0){setDragId(null);setDropTarget(null);return}
+    // Remove dragged item
+    ids.splice(fromIdx,1);
+    // Find target position
+    let toIdx=ids.indexOf(targetId);
+    if(toIdx<0){setDragId(null);setDropTarget(null);return}
+    if(dropTarget?.pos==="after")toIdx+=1;
+    ids.splice(toIdx,0,dragId);
+    setDragOrder(ids);
+    setDragId(null);setDropTarget(null);
   };
 
   // Add a new stage to this event
@@ -270,7 +300,7 @@ export default function AgendaBuilder(){
 
   // Bulk selection helpers
   const toggleSel=id=>{const n=new Set(sel);if(n.has(id))n.delete(id);else n.add(id);setSel(n)};
-  const selAll=()=>{const ids=new Set(filtered.map(s=>s.id));setSel(ids)};
+  const selAll=()=>{const ids=new Set(displayList.map(s=>s.id));setSel(ids)};
   const selNone=()=>setSel(new Set());
   const selCount=sel.size;
 
@@ -363,7 +393,9 @@ export default function AgendaBuilder(){
       <select className="fs" value={fT} onChange={e=>setFT(e.target.value)}><option value="all">All Tracks</option>{TRACKS.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
       <select className="fs" value={fL} onChange={e=>setFL(e.target.value)}><option value="all">All Stages</option>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
       <select className="fs" value={fTy} onChange={e=>setFTy(e.target.value)}><option value="all">All Types</option>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
-      <div className="fonly">{["all","empty","awaiting","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":v==="awaiting"?"Awaiting Title":"Filled"}</button>)}</div>
+      <div className="fonly">{["all","empty","awaiting","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":v==="awaiting"?"Awaiting Title":"Filled"}</button>)}
+        {dragOrder&&<button className="fbtn" onClick={()=>setDragOrder(null)} style={{borderColor:"var(--spectrum)",color:"var(--spectrum)"}}>Reset Order</button>}
+      </div>
     </div>
     {/* Bulk action bar */}
     {selCount>0&&<div className="bbar">
@@ -372,16 +404,17 @@ export default function AgendaBuilder(){
       <button className="b bo bs" style={{background:"var(--prussian)",color:"#fff",borderColor:"var(--prussian)"}} onClick={()=>setBulkCopyModal(true)}>Copy To...</button>
       <button className="b bd bs" onClick={bulkDelete}>Delete</button>
       <div style={{flex:1}}/>
-      <button className="b bg bs" onClick={selAll}>Select All ({filtered.length})</button>
+      <button className="b bg bs" onClick={selAll}>Select All ({displayList.length})</button>
       <button className="b bg bs" onClick={selNone}>Deselect</button>
     </div>}
-    {filtered.length===0?(<div className="es"><h3>No Matches</h3><p>Try adjusting filters.</p></div>):(
-      <div className="ag">{filtered.map(s=>{const t=trk(s.trackId);const empty=noTitle(s);const await_=awaitingTitle(s);const isSel=sel.has(s.id);return(
-        <div key={s.id} className={`sc ${await_?"awaiting":empty?"empty":""} ${dragId===s.id?"dragging":""} ${isSel?"selected":""}`} draggable
+    {displayList.length===0?(<div className="es"><h3>No Matches</h3><p>Try adjusting filters.</p></div>):(
+      <div className="ag">{displayList.map(s=>{const t=trk(s.trackId);const empty=noTitle(s);const await_=awaitingTitle(s);const isSel=sel.has(s.id);const isDT=dropTarget?.id===s.id;return(
+        <div key={s.id} className={`sc ${await_?"awaiting":empty?"empty":""} ${dragId===s.id?"dragging":""} ${isSel?"selected":""} ${isDT?"drop-"+dropTarget.pos:""}`} draggable
           onDragStart={e=>{setDragId(s.id);e.dataTransfer.effectAllowed="move"}}
-          onDragEnd={()=>setDragId(null)}
-          onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move"}}
-          onDrop={e=>{e.preventDefault();if(dragId&&dragId!==s.id)swapSessions(dragId,s.id);setDragId(null)}}
+          onDragEnd={()=>{setDragId(null);setDropTarget(null)}}
+          onDragOver={e=>handleDragOver(e,s.id)}
+          onDragLeave={()=>{if(dropTarget?.id===s.id)setDropTarget(null)}}
+          onDrop={e=>handleDrop(e,s.id)}
           onClick={()=>{if(dragId)return;setEdit({...s,speakers:[...(s.speakers||[])],topicTags:[...(s.topicTags||[])],audienceTags:[...(s.audienceTags||[])]});setModal(true)}}>
           <div className="ctb" style={{background:t.bg}}/><div className="cb">
             <div className="ct">
