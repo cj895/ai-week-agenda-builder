@@ -18,6 +18,20 @@ const TRACKS = [
   { id: "generative-ai", name: "Generative AI", bg: "#304FFE", fg: "#FFFFFF" },
 ];
 const SESSION_TYPES = ["Keynote","Panel","Workshop","Fireside Chat","Roundtable","Presentation","SME Spotlight","Startup Pitch","Networking","Social Event","Debate"];
+// Required speaker counts per session type
+const SPEAKER_REQ = {
+  "Keynote": { total: 1, label: "1 Speaker" },
+  "Panel": { total: 5, label: "1 Moderator + 4 Speakers" },
+  "Workshop": { total: 2, label: "2 Speakers" },
+  "Fireside Chat": { total: 3, label: "1 Moderator + 2 Speakers" },
+  "Roundtable": { total: 9, label: "1 Moderator + 8 Speakers" },
+  "Presentation": { total: 2, label: "2 Speakers" },
+  "SME Spotlight": { total: 2, label: "2 Speakers" },
+  "Debate": { total: 3, label: "1 Moderator + 2 Speakers" },
+  "Startup Pitch": { total: 0, label: "" },
+  "Networking": { total: 0, label: "" },
+  "Social Event": { total: 0, label: "" },
+};
 const TOPIC_TAGS = ["AI Strategy","Use Case Discovery","ROI","Change Management","Adoption","Workforce Readiness","Data Readiness","Data Governance","Data Architecture","Infrastructure","LLMs","Agents","RAG","Prompt Engineering","Model Evaluation","AI Security","Risk Management","Compliance","Privacy","Responsible AI","Executive Governance","Organizational Alignment","Implementation","Pilot to Production","Case Studies","Business Outcomes","Automation","Productivity","Marketing AI","Operations","Founders","Fundraising","Enterprise Sales","Community Building","Partnerships"];
 const AUDIENCE_TAGS = ["Executive","Practitioner","Technical","Beginner Friendly","Advanced","Panel","Workshop","Roundtable","Fireside Chat","Case Study","Demo","Startup","Enterprise"];
 // Time helpers: store in 24h, display in 12h, let users type naturally
@@ -140,7 +154,7 @@ body{background:#F8F9FB}
 .dt{display:flex;gap:3px;margin-top:10px;flex-wrap:wrap}
 .dtb{font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:7px 14px;border-radius:25px;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.55);transition:all .2s;white-space:nowrap}.dtb:hover{background:rgba(255,255,255,.12);color:#fff}.dtb.a{background:var(--aqua);color:var(--prussian);border-color:var(--aqua)}
 .sb{display:flex;gap:20px;padding:14px 28px;background:#fff;border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center}
-.st{display:flex;align-items:baseline;gap:5px}.sn{font-weight:800;font-size:20px;color:var(--spectrum)}.sn.warn{color:#F59E0B}.sn.await{color:#A855F7}.sl{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
+.st{display:flex;align-items:baseline;gap:5px}.sn{font-weight:800;font-size:20px;color:var(--spectrum)}.sn.warn{color:#F59E0B}.sn.await{color:#A855F7}.sn.spk-warn{color:#EF4444}.sl{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
 .fb{display:flex;gap:8px;padding:14px 28px;background:#fff;border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center}
 .si{font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:25px;padding:7px 14px;background:var(--bg2);min-width:200px;color:var(--t1)}.si:focus{outline:none;border-color:var(--azure)}
 .fs{font-family:'DM Sans',sans-serif;font-size:11px;border:1px solid var(--bdr);border-radius:25px;padding:7px 12px;background:#fff;color:var(--t1);cursor:pointer}
@@ -157,6 +171,7 @@ body{background:#F8F9FB}
 .cm{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}
 .cp{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:25px}
 .csp{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--t2);display:flex;align-items:center;gap:3px;margin-top:6px}
+.csp.spk-need{color:#EF4444;font-weight:600}
 .cl{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.03em;margin-top:3px}
 .cspon{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--spectrum);font-weight:600;margin-top:4px}
 .mo{position:fixed;inset:0;background:rgba(0,19,36,.55);backdrop-filter:blur(3px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -252,9 +267,12 @@ export default function AgendaBuilder(){
   const noTitle=s=>!s.title.trim();
   const hasDetails=s=>(s.speakers||[]).length>0||s.description?.trim()||s.sponsor?.trim()||(s.topicTags||[]).length>0;
   const awaitingTitle=s=>noTitle(s)&&hasDetails(s);
+  const spkReq=s=>SPEAKER_REQ[s.sessionType]||{total:0,label:""};
+  const needsSpeakers=s=>{const req=spkReq(s);return req.total>0&&(s.speakers||[]).length<req.total};
   const emptyCount=ss.filter(noTitle).length;
   const awaitCount=ss.filter(awaitingTitle).length;
   const filledCount=ss.filter(s=>!noTitle(s)).length;
+  const needSpkCount=ss.filter(needsSpeakers).length;
   const dc={};days.forEach(d=>{dc[d.id]=ss.filter(x=>x.date===d.id).length});
   const dcE={};days.forEach(d=>{dcE[d.id]=ss.filter(x=>x.date===d.id&&noTitle(x)).length});
   const dcA={};days.forEach(d=>{dcA[d.id]=ss.filter(x=>x.date===d.id&&awaitingTitle(x)).length});
@@ -289,7 +307,7 @@ export default function AgendaBuilder(){
   useEffect(()=>{setDragOrder(null);setDropTarget(null)},[aDay,fT,fL,fTy,fEmpty,search]);
 
   const getDisplayList=()=>{
-    const defaultSorted=ss.filter(s=>{if(s.date!==aDay)return false;if(fT!=="all"&&s.trackId!==fT)return false;if(fL!=="all"&&s.location!==fL)return false;if(fTy!=="all"&&s.sessionType!==fTy)return false;if(fEmpty==="empty"&&!noTitle(s))return false;if(fEmpty==="awaiting"&&!awaitingTitle(s))return false;if(fEmpty==="filled"&&noTitle(s))return false;if(search){const q=search.toLowerCase();return s.title.toLowerCase().includes(q)||s.speakers?.some(sp=>sp.toLowerCase().includes(q))||s.description?.toLowerCase().includes(q)||s.sponsor?.toLowerCase().includes(q)}return true}).sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location));
+    const defaultSorted=ss.filter(s=>{if(s.date!==aDay)return false;if(fT!=="all"&&s.trackId!==fT)return false;if(fL!=="all"&&s.location!==fL)return false;if(fTy!=="all"&&s.sessionType!==fTy)return false;if(fEmpty==="empty"&&!noTitle(s))return false;if(fEmpty==="awaiting"&&!awaitingTitle(s))return false;if(fEmpty==="filled"&&noTitle(s))return false;if(fEmpty==="needsSpk"&&!needsSpeakers(s))return false;if(search){const q=search.toLowerCase();return s.title.toLowerCase().includes(q)||s.speakers?.some(sp=>sp.toLowerCase().includes(q))||s.description?.toLowerCase().includes(q)||s.sponsor?.toLowerCase().includes(q)}return true}).sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.location.localeCompare(b.location));
     if(!dragOrder)return defaultSorted;
     // Use manual order, appending any new items not in the order
     const ordered=[];const seen=new Set();
@@ -415,6 +433,7 @@ export default function AgendaBuilder(){
       <div className="st"><span className="sn">{filledCount}</span><span className="sl">Filled</span></div>
       <div className="st"><span className={`sn ${emptyCount>0?"warn":""}`}>{emptyCount}</span><span className="sl">Open</span></div>
       <div className="st"><span className={`sn ${awaitCount>0?"await":""}`}>{awaitCount}</span><span className="sl">Awaiting Title</span></div>
+      <div className="st"><span className={`sn ${needSpkCount>0?"spk-warn":""}`}>{needSpkCount}</span><span className="sl">Needs Speakers</span></div>
       <div className="st"><span className="sn">{new Set(ss.flatMap(s=>s.speakers||[])).size}</span><span className="sl">Speakers</span></div>
       <div className="st"><span className="sn">{new Set(ss.filter(s=>s.sponsor?.trim()).map(s=>s.sponsor)).size}</span><span className="sl">Sponsors</span></div>
       <div style={{flex:1}}/>
@@ -426,7 +445,7 @@ export default function AgendaBuilder(){
       <select className="fs" value={fT} onChange={e=>setFT(e.target.value)}><option value="all">All Tracks</option>{TRACKS.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
       <select className="fs" value={fL} onChange={e=>setFL(e.target.value)}><option value="all">All Stages</option>{stages.map(l=><option key={l} value={l}>{l}</option>)}</select>
       <select className="fs" value={fTy} onChange={e=>setFTy(e.target.value)}><option value="all">All Types</option>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
-      <div className="fonly">{["all","empty","awaiting","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":v==="awaiting"?"Awaiting Title":"Filled"}</button>)}
+      <div className="fonly">{["all","empty","awaiting","needsSpk","filled"].map(v=><button key={v} className={`fbtn ${fEmpty===v?"active":""}`} onClick={()=>setFEmpty(v)}>{v==="all"?"All":v==="empty"?"Open Slots":v==="awaiting"?"Awaiting Title":v==="needsSpk"?"Needs Speakers":"Filled"}</button>)}
         {dragOrder&&<button className="fbtn" onClick={()=>setDragOrder(null)} style={{borderColor:"var(--spectrum)",color:"var(--spectrum)"}}>Reset Order</button>}
       </div>
     </div>
@@ -457,7 +476,7 @@ export default function AgendaBuilder(){
             <div className={`ctl ${await_?"await-title":empty?"needs":""}`}>{await_?"\uD83D\uDD14 AWAITING TITLE \u2014 Has Details":empty?"\u26A0 OPEN SLOT \u2014 Needs Title":s.title}</div>
             <div className="cm"><span className="cp" style={{background:"var(--bg2)",color:"var(--t2)"}}>{s.sessionType}</span>{(s.topicTags||[]).slice(0,2).map(tg=><span key={tg} className="cp" style={{background:"rgba(0,132,255,.08)",color:"var(--azure)"}}>{tg}</span>)}</div>
             {s.sponsor?.trim()&&<div className="cspon">Sponsored by {s.sponsor}</div>}
-            {(s.speakers||[]).length>0&&<div className="csp">{"\uD83C\uDFA4"} {s.speakers.slice(0,3).join(", ")}{s.speakers.length>3?` +${s.speakers.length-3}`:""}</div>}
+            {(()=>{const req=spkReq(s);const have=(s.speakers||[]).length;const need=req.total;if(need===0)return(have>0?<div className="csp">{"\uD83C\uDFA4"} {s.speakers.slice(0,3).join(", ")}{have>3?` +${have-3}`:""}</div>:null);const full=have>=need;return(<div className={`csp ${full?"":"spk-need"}`}>{"\uD83C\uDFA4"} {have}/{need} {"\u2014"} {full?"\u2705":"Needs "+(need-have)+" more"}{have>0&&" \u2022 "+s.speakers.slice(0,3).join(", ")+(have>3?` +${have-3}`:"")}</div>)})()}
             <div className="cl">{"\uD83D\uDCCD"} {s.location}</div>
           </div></div>)})}</div>)}
     {modal&&edit&&<SModal s={edit} days={days} stages={stages} isNew={!ss.find(x=>x.id===edit.id)} onSave={save} onDel={del} onDup={dup} onAddStage={addStage} onClose={()=>{setModal(false);setEdit(null)}} />}
@@ -512,7 +531,13 @@ function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}
           <div className="fgr"><label className="fl">Session Type</label><select className="fsl" value={s.sessionType} onChange={e=>set("sessionType",e.target.value)}>{SESSION_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
         </div>
         <div className="fgr f" style={{marginTop:18}}><label className="fl">Sponsor</label><input className="fi" value={s.sponsor||""} onChange={e=>set("sponsor",e.target.value)} placeholder="Sponsor name (optional)..." /></div>
-        <div className="fgr f" style={{marginTop:18}}><label className="fl">Speakers</label>
+        <div className="fgr f" style={{marginTop:18}}>
+          {(()=>{const req=SPEAKER_REQ[s.sessionType]||{total:0,label:""};const have=(s.speakers||[]).length;const need=req.total;const full=need>0&&have>=need;return(<>
+            <label className="fl" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>Speakers{req.label?` \u2014 ${req.label}`:""}</span>
+              {need>0&&<span style={{fontWeight:800,color:full?"#10B981":"#EF4444"}}>{have}/{need}</span>}
+            </label>
+          </>)})()}
           <div style={{display:"flex",gap:6}}><input className="fi" value={spk} onChange={e=>setSpk(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addSp()}}} placeholder="Type name, press Enter..." /><button className="b bp bs" onClick={addSp}>Add</button></div>
           {(s.speakers||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>{s.speakers.map((sp,i)=><span key={i} className="cp" style={{background:"var(--prussian)",color:"#fff",display:"flex",alignItems:"center",gap:5,padding:"4px 10px",fontSize:11}}>{sp}<span onClick={()=>remSp(i)} style={{cursor:"pointer",opacity:.6,fontSize:13,lineHeight:1}}>{"\u00D7"}</span></span>)}</div>}
         </div>
