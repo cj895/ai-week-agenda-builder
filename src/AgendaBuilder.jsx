@@ -63,10 +63,10 @@ const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const ATL_STAGES=["Stage 1 \u2014 ATV Main Stage","Stage 2 \u2014 ATV Lennox Boardroom","Stage 3 \u2014 ATV Pitch Practice Room","Stage 4 \u2014 Roam Buckhead Garage","Stage 5 \u2014 Roam Forum","Stage 6 \u2014 TechRise Stage","Stage 7 \u2014 ATV Roundtable Room 1","Stage 8 \u2014 ATV Roundtable Room 2","Stage 9 \u2014 ATV Community Room"];
 const DEFAULT_STAGES=["Stage 1 \u2014 Main Stage","Stage 2 \u2014 Breakout Room A","Stage 3 \u2014 Breakout Room B","Stage 4 \u2014 Breakout Room C","Stage 5 \u2014 Breakout Room D","Stage 6 \u2014 Breakout Room E","Stage 7 \u2014 Roundtable Room 1","Stage 8 \u2014 Roundtable Room 2","Stage 9 \u2014 Community Room"];
 
-const toDb=(s,eventId)=>({id:s.id,event_id:eventId,date:s.date,start_time:s.startTime,end_time:s.endTime,title:s.title||"",track_id:s.trackId,session_type:s.sessionType,location:s.location,topic_tags:s.topicTags||[],audience_tags:s.audienceTags||[],speakers:s.speakers||[],sponsor:s.sponsor||"",description:s.description||"",status:s.status||"publish",locked:s.locked??true});
-const fromDb=(r)=>({id:r.id,date:r.date,startTime:r.start_time,endTime:r.end_time,title:r.title||"",trackId:r.track_id,sessionType:r.session_type,location:r.location,topicTags:r.topic_tags||[],audienceTags:r.audience_tags||[],speakers:r.speakers||[],sponsor:r.sponsor||"",description:r.description||"",status:r.status||"publish",locked:r.locked??true});
+const toDb=(s,eventId)=>({id:s.id,event_id:eventId,date:s.date,start_time:s.startTime,end_time:s.endTime,title:s.title||"",track_id:s.trackId,session_type:s.sessionType,location:s.location,topic_tags:s.topicTags||[],audience_tags:s.audienceTags||[],speakers:s.speakers||[],sponsor:s.sponsor||"",description:s.description||"",status:s.status||"publish",locked:s.locked??true,speaker_req:s.speakerReq??null});
+const fromDb=(r)=>({id:r.id,date:r.date,startTime:r.start_time,endTime:r.end_time,title:r.title||"",trackId:r.track_id,sessionType:r.session_type,location:r.location,topicTags:r.topic_tags||[],audienceTags:r.audience_tags||[],speakers:r.speakers||[],sponsor:r.sponsor||"",description:r.description||"",status:r.status||"publish",locked:r.locked??true,speakerReq:r.speaker_req??null});
 
-const slot=(d,s,e,type,track,loc,title="")=>({id:uid(),date:d,startTime:s,endTime:e,sessionType:type,trackId:track,title,location:loc,topicTags:[],audienceTags:[],speakers:[],sponsor:"",description:"",status:"publish",locked:true});
+const slot=(d,s,e,type,track,loc,title="")=>({id:uid(),date:d,startTime:s,endTime:e,sessionType:type,trackId:track,title,location:loc,topicTags:[],audienceTags:[],speakers:[],sponsor:"",description:"",status:"publish",locked:true,speakerReq:null});
 
 function buildSkeleton(days,stg){
   const[S0,S1,S2,S3,S4,S5,S6,S7,S8]=[stg[0]||"Stage 1",stg[1]||"Stage 2",stg[2]||"Stage 3",stg[3]||"Stage 4",stg[4]||"Stage 5",stg[5]||"Stage 6",stg[6]||"Stage 7",stg[7]||"Stage 8",stg[8]||"Stage 9"];
@@ -267,7 +267,7 @@ export default function AgendaBuilder(){
   const noTitle=s=>!s.title.trim();
   const hasDetails=s=>(s.speakers||[]).length>0||s.description?.trim()||s.sponsor?.trim()||(s.topicTags||[]).length>0;
   const awaitingTitle=s=>noTitle(s)&&hasDetails(s);
-  const spkReq=s=>SPEAKER_REQ[s.sessionType]||{total:0,label:""};
+  const spkReq=s=>{const def=SPEAKER_REQ[s.sessionType]||{total:0,label:""};if(s.speakerReq!==null&&s.speakerReq!==undefined)return{total:s.speakerReq,label:s.speakerReq===0?"None required":s.speakerReq+" speaker"+(s.speakerReq>1?"s":"")+" (custom)"};return def};
   const needsSpeakers=s=>{const req=spkReq(s);return req.total>0&&(s.speakers||[]).length<req.total};
   const emptyCount=ss.filter(noTitle).length;
   const awaitCount=ss.filter(awaitingTitle).length;
@@ -356,7 +356,7 @@ export default function AgendaBuilder(){
   const selCount=sel.size;
 
   // Wipe content helper — keeps structure, clears user content
-  const wipeContent=s=>({...s,title:"",speakers:[],sponsor:"",description:"",topicTags:[],audienceTags:[]});
+  const wipeContent=s=>({...s,title:"",speakers:[],sponsor:"",description:"",topicTags:[],audienceTags:[],speakerReq:null});
 
   // Bulk change stage
   const bulkChangeStage=async(newLoc,wipe=false)=>{
@@ -393,7 +393,7 @@ export default function AgendaBuilder(){
     setSel(new Set());
   };
 
-  const newS=()=>({id:uid(),date:aDay||days[1]?.id||days[0]?.id,startTime:"11:40",endTime:"12:10",title:"",trackId:"ai-in-action",sessionType:"Panel",location:stages[0]||"Stage 1",topicTags:[],audienceTags:[],speakers:[],sponsor:"",description:"",status:"publish",locked:false});
+  const newS=()=>({id:uid(),date:aDay||days[1]?.id||days[0]?.id,startTime:"11:40",endTime:"12:10",title:"",trackId:"ai-in-action",sessionType:"Panel",location:stages[0]||"Stage 1",topicTags:[],audienceTags:[],speakers:[],sponsor:"",description:"",status:"publish",locked:false,speakerReq:null});
 
   const doExport=(filterDay,filterLoc)=>{
     if(!ev)return;
@@ -532,10 +532,15 @@ function SModal({s:init,days,stages,isNew,onSave,onDel,onDup,onAddStage,onClose}
         </div>
         <div className="fgr f" style={{marginTop:18}}><label className="fl">Sponsor</label><input className="fi" value={s.sponsor||""} onChange={e=>set("sponsor",e.target.value)} placeholder="Sponsor name (optional)..." /></div>
         <div className="fgr f" style={{marginTop:18}}>
-          {(()=>{const req=SPEAKER_REQ[s.sessionType]||{total:0,label:""};const have=(s.speakers||[]).length;const need=req.total;const full=need>0&&have>=need;return(<>
-            <label className="fl" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span>Speakers{req.label?` \u2014 ${req.label}`:""}</span>
-              {need>0&&<span style={{fontWeight:800,color:full?"#10B981":"#EF4444"}}>{have}/{need}</span>}
+          {(()=>{const def=SPEAKER_REQ[s.sessionType]||{total:0,label:""};const isCustom=s.speakerReq!==null&&s.speakerReq!==undefined;const need=isCustom?s.speakerReq:def.total;const have=(s.speakers||[]).length;const full=need>0&&have>=need;return(<>
+            <label className="fl" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
+              <span>Speakers{def.label?` \u2014 ${def.label}`:""}</span>
+              <span style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:9,color:"var(--t3)"}}>Required:</span>
+                <input type="number" min="0" max="20" value={need} onChange={e=>{const v=parseInt(e.target.value);set("speakerReq",isNaN(v)?null:v)}} style={{width:42,padding:"2px 6px",borderRadius:6,border:"1px solid var(--bdr)",fontSize:12,fontWeight:700,textAlign:"center",fontFamily:"'JetBrains Mono',monospace"}} />
+                {isCustom&&<button onClick={()=>set("speakerReq",null)} style={{fontSize:9,color:"var(--azure)",background:"none",border:"none",cursor:"pointer",textDecoration:"underline",padding:0}}>Reset to default ({def.total})</button>}
+                {need>0&&<span style={{fontWeight:800,color:full?"#10B981":"#EF4444",fontSize:11}}>{have}/{need}</span>}
+              </span>
             </label>
           </>)})()}
           <div style={{display:"flex",gap:6}}><input className="fi" value={spk} onChange={e=>setSpk(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addSp()}}} placeholder="Type name, press Enter..." /><button className="b bp bs" onClick={addSp}>Add</button></div>
